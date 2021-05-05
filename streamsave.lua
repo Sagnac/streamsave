@@ -56,26 +56,40 @@ Note you may still experience issues if the framerate is not known and a high fp
 
 local options = require 'mp.options'
 local utils = require 'mp.utils'
+local msg = require 'mp.msg'
 
 -- default user options
 -- change these in streamsave.conf
 local opts = {
     save_directory = [[.]],
     dump_mode = "ab",
-    output_label = "increments",
+    output_label = "increment",
 }
-options.read_options(opts, "streamsave")
+options.read_options(opts, "streamsave", function() update_opts() end)
+
+local function validate_mode()
+    if opts.dump_mode ~= "ab" and opts.dump_mode ~= "continuous" then
+        msg.warn("Invalid dump mode '" .. opts.dump_mode .. "'")
+        opts.dump_mode = "ab"
+    end
+end
 
 -- for internal use
 local file = {
     name,            -- file name
-    -- expands mpv meta paths (e.g. ~~/directory)
-    path = mp.command_native({"expand-path", opts.save_directory}),
+    path,            -- file path
     title,           -- media title
     inc,             -- filename increments
     ext,             -- file extension
-    oldext,          -- old (auto determined) extension, initialized if overridden
+    oldext,          -- initialized if format is overridden, allows revert
 }
+
+function update_opts()
+    -- expand mpv meta paths (e.g. ~~/directory)
+    file.path = mp.command_native({"expand-path", opts.save_directory})
+    validate_mode()
+end
+update_opts()
 
 -- dump mode switching
 local function mode_switch(value)
@@ -94,6 +108,8 @@ local function mode_switch(value)
         opts.dump_mode = "ab"
         print("A-B loop mode")
         mp.osd_message("Cache write mode: A-B loop")
+    else
+        msg.warn("Invalid dump mode '" .. value .. "'")
     end
 end
 
