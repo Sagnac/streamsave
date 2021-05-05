@@ -30,6 +30,14 @@ output_label=timestamp will append Unix timestamps to all output files regardles
 output_label=range will tag the file with the A-B loop range instead using the format HH.MM.SS e.g. file-[00.15.00-00.20.00].mkv
 output_label=overwrite will use the iterated behavior of the default but will overwrite any existing files with the same name.
 
+mpv's script-message command can be used to set the dump mode or override the file extension by specifying streamsave-mode and streamsave-extension respectively.
+If you override the output file extension the revert argument can be used to set it back to the default auto-determined value.
+Examples:
+script-message streamsave-mode ab
+script-message streamsave-mode continuous
+script-message streamsave-extension .mkv
+script-message streamsave-extension revert
+
 Known issues and bugs with the dump-cache command:
 Won't work with some high FPS streams (too many queued packets error)
 Errors on some videos if you use the default youtube-dl format selection
@@ -66,15 +74,23 @@ local file = {
     title,           -- media title
     inc,             -- filename increments
     ext,             -- file extension
+    oldext,          -- old (auto determined) extension, initialized if overridden
 }
 
--- Keybind to cycle between dump modes.
-local function mode_switch()
-    if opts.dump_mode == "ab" then
+-- dump mode switching
+local function mode_switch(value)
+    if value == "cycle" then
+        if opts.dump_mode == "ab" then
+            value = "continuous"
+        else
+            value = "ab"
+        end
+    end
+    if value == "continuous" then
         opts.dump_mode = "continuous"
         print("Continuous mode")
         mp.osd_message("Cache write mode: Continuous")
-    else
+    elseif value == "ab" then
         opts.dump_mode = "ab"
         print("A-B loop mode")
         mp.osd_message("Cache write mode: A-B loop")
@@ -114,7 +130,20 @@ local function container()
         else
             file.ext = ".mkv"
         end
+        file.oldext = nil
     end
+end
+
+-- Allow user override of file extension
+local function format_override(ext)
+    file.oldext = file.oldext or file.ext
+    if ext == "revert" then
+        file.ext = file.oldext
+    else
+        file.ext = ext
+    end
+    print("file extension changed to " .. file.ext)
+    mp.osd_message("streamsave file extension changed to " .. file.ext)
 end
 
 --[[ video and audio formats observed in order to handle track changes
@@ -162,6 +191,9 @@ local function align_cache()
     print("Adjusted range: " .. a_loop_point .. " - " .. b_loop_point)
 end
 
-mp.add_key_binding("Alt+z", "mode-switch", mode_switch)
+mp.register_script_message("streamsave-mode", mode_switch)
+mp.register_script_message("streamsave-extension", format_override)
+
+mp.add_key_binding("Alt+z", "mode-switch", function() mode_switch("cycle") end)
 mp.add_key_binding("Alt+x", "align-cache", align_cache)
 mp.add_key_binding("Ctrl+z", "cache-write", cache_write)
