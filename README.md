@@ -15,6 +15,17 @@ Default keybinds:
 It is advisable that you set `--demuxer-max-bytes` and `--demuxer-max-back-bytes` to larger values (e.g. at least 1GiB) in order to have a larger cache.  
 If you want to use with local files set `cache=yes` in mpv.conf
 
+mpv's `script-message` command can be used to set the dump mode or override the file extension by specifying `streamsave-mode` and `streamsave-extension` respectively.
+If you override the output file extension the `revert` argument can be used to set it back to the default auto-determined value.
+
+Examples:
+```
+script-message streamsave-mode ab
+script-message streamsave-mode continuous
+script-message streamsave-extension .mkv
+script-message streamsave-extension revert
+```
+
 ## Options
 
 if setting `save_directory` in `~~/script-opts/streamsave.conf` don't use quote marks or a trailing slash.
