@@ -67,9 +67,17 @@ local opts = {
 }
 options.read_options(opts, "streamsave", function() update_opts() end)
 
-local function validate_mode()
+local function validate_opts()
+    if opts.output_label ~= "increment" and
+       opts.output_label ~= "range" and
+       opts.output_label ~= "timestamp" and
+       opts.output_label ~= "overwrite"
+    then
+        msg.warn("Invalid output_label '" .. opts.output_label .. "'")
+        opts.output_label = "increment"
+    end
     if opts.dump_mode ~= "ab" and opts.dump_mode ~= "continuous" then
-        msg.warn("Invalid dump mode '" .. opts.dump_mode .. "'")
+        msg.warn("Invalid dump_mode '" .. opts.dump_mode .. "'")
         opts.dump_mode = "ab"
     end
 end
@@ -87,7 +95,7 @@ local file = {
 function update_opts()
     -- expand mpv meta paths (e.g. ~~/directory)
     file.path = mp.command_native({"expand-path", opts.save_directory})
-    validate_mode()
+    validate_opts()
 end
 update_opts()
 
@@ -172,16 +180,18 @@ mp.observe_property("audio-codec-name", "string", container)
 local function cache_write()
     if file.title and file.ext then
         file.inc = file.inc + 1
-        -- set file name and evaluate tagging conditions
-        file.name = file.path .. "/" .. file.title .. -file.inc .. file.ext
+        -- evaluate tagging conditions and set file name
+        if opts.output_label == "increment" or opts.output_label == "overwrite" then
+            file.name = file.path .. "/" .. file.title .. -file.inc .. file.ext
+        end
         if opts.output_label == "range" then
             local a_loop_point = mp.get_property_osd("ab-loop-a"):gsub(":", ".")
             local b_loop_point = mp.get_property_osd("ab-loop-b"):gsub(":", ".")
             local t_range = "[" .. a_loop_point .. "-" .. b_loop_point .. "]"
             file.name = file.path .. "/" .. file.title .. "-" .. t_range .. file.ext
         -- check if file exists, timestamp file name if so
-        elseif (utils.file_info(file.name) and opts.output_label ~= "overwrite")
-            or opts.output_label == "timestamp"
+        elseif opts.output_label == "timestamp"
+            or (utils.file_info(file.name) and opts.output_label ~= "overwrite")
         then
             file.name = file.path .. "/" .. file.title .. -os.time() .. file.ext
         end
