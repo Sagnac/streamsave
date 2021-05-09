@@ -243,16 +243,17 @@ end
 
 local function range_stamp()
     if opts.dump_mode == "ab" then
+        range_flip()
         a_loop_osd = mp.get_property_osd("ab-loop-a"):gsub(":", ".")
         b_loop_osd = mp.get_property_osd("ab-loop-b"):gsub(":", ".")
-        file.range = "[" .. a_loop_osd .. "-" .. b_loop_osd .. "]"
-        file.name = file.path .. "/" .. file.title .. "-" .. file.range .. file.ext
+        file.range = "-[" .. a_loop_osd .. "-" .. b_loop_osd .. "]"
+        file.name = file.path .. "/" .. file.title .. file.range .. file.ext
     elseif opts.dump_mode == "current" then
         file.pos = mp.get_property_osd("playback-time"):gsub(":", ".")
-        file.range = "[" .. 0 .. "-" .. file.pos .. "]"
+        file.range = "-[" .. 0 .. "-" .. file.pos .. "]"
         file.name = file.path .. "/" .. file.title .. file.range .. file.ext
     else
-    -- range tag is incompatible with continuous dump, fallback to increments
+    -- range tag is incompatible with full dump, fallback to increments
         increment_filename()
     end
 end
