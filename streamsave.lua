@@ -80,8 +80,10 @@ local file = {
     oldext,          -- initialized if format is overridden, allows revert
 }
 
-local a_loop_point
-local b_loop_point
+local a_loop
+local b_loop
+local a_loop_osd
+local b_loop_osd
 
 local function validate_opts()
     if opts.output_label ~= "increment" and
@@ -196,6 +198,18 @@ local function title_override(title)
     mp.osd_message("streamsave: title changed to " .. file.title)
 end
 
+local function range_flip()
+    a_loop = mp.get_property_number("ab-loop-a")
+    b_loop = mp.get_property_number("ab-loop-b")
+    if a_loop and b_loop then
+        if a_loop > b_loop then
+            a_loop, b_loop = b_loop, a_loop
+            mp.set_property_number("ab-loop-a", a_loop)
+            mp.set_property_number("ab-loop-b", b_loop)
+        end
+    end
+end
+
 local function increment_filename()
     if opts.dump_mode == "continuous" then
         file.name = file.path .. "/" .. file.title .. file.ext
@@ -210,9 +224,9 @@ local function increment_filename()
 end
 
 local function range_stamp()
-    a_loop_point = mp.get_property_osd("ab-loop-a"):gsub(":", ".")
-    b_loop_point = mp.get_property_osd("ab-loop-b"):gsub(":", ".")
-    file.range = "[" .. a_loop_point .. "-" .. b_loop_point .. "]"
+    a_loop_osd = mp.get_property_osd("ab-loop-a"):gsub(":", ".")
+    b_loop_osd = mp.get_property_osd("ab-loop-b"):gsub(":", ".")
+    file.range = "[" .. a_loop_osd .. "-" .. b_loop_osd .. "]"
     file.name = file.path .. "/" .. file.title .. "-" .. file.range .. file.ext
     -- range label is incompatible with full dump, fallback to increment default
     if opts.dump_mode == "continuous" then
@@ -234,6 +248,7 @@ local function cache_write()
         end
         -- dump cache according to mode
         if opts.dump_mode == "ab" then
+            range_flip()
             mp.commandv("async", "osd-msg", "ab-loop-dump-cache", file.name)
             if utils.file_info(file.name) then
                 file.inc = file.inc + 1
@@ -253,10 +268,11 @@ Use align-cache if you want to know which range will likely be dumped.
 Keep in mind this changes the A-B loop points you've set.
 This is sometimes inaccurate. ]]
 local function align_cache()
+    range_flip()
     mp.commandv("osd-msg", "ab-loop-align-cache")
-    a_loop_point = mp.get_property_osd("ab-loop-a")
-    b_loop_point = mp.get_property_osd("ab-loop-b")
-    print("Adjusted range: " .. a_loop_point .. " - " .. b_loop_point)
+    a_loop_osd = mp.get_property_osd("ab-loop-a")
+    b_loop_osd = mp.get_property_osd("ab-loop-b")
+    print("Adjusted range: " .. a_loop_osd .. " - " .. b_loop_osd)
 end
 
 mp.register_script_message("streamsave-mode", mode_switch)
