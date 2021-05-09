@@ -63,7 +63,7 @@ local msg = require 'mp.msg'
 -- change these in streamsave.conf
 local opts = {
     save_directory = [[.]],         -- output file directory
-    dump_mode = "ab",               -- clip mode: "ab", full dump: "continuous"
+    dump_mode = "ab",               -- <ab|current|continuous>
     output_label = "increment",     -- filename tags <range|timestamp|overwrite>
 }
 options.read_options(opts, "streamsave", function() update_opts() end)
@@ -76,6 +76,7 @@ local file = {
     inc,             -- filename increments
     range,           -- A-B loop range used to tag file
     ext,             -- file extension
+    pos,             -- current position in file (playback-time)
     oldtitle,        -- initialized if title is overridden, allows revert
     oldext,          -- initialized if format is overridden, allows revert
 }
@@ -94,7 +95,10 @@ local function validate_opts()
         msg.warn("Invalid output_label '" .. opts.output_label .. "'")
         opts.output_label = "increment"
     end
-    if opts.dump_mode ~= "ab" and opts.dump_mode ~= "continuous" then
+    if opts.dump_mode ~= "ab" and
+       opts.dump_mode ~= "current" and
+       opts.dump_mode ~= "continuous"
+    then
         msg.warn("Invalid dump_mode '" .. opts.dump_mode .. "'")
         opts.dump_mode = "ab"
     end
@@ -111,6 +115,8 @@ update_opts()
 local function mode_switch(value)
     if value == "cycle" then
         if opts.dump_mode == "ab" then
+            value = "current"
+        elseif opts.dump_mode == "current" then
             value = "continuous"
         else
             value = "ab"
@@ -124,6 +130,10 @@ local function mode_switch(value)
         opts.dump_mode = "ab"
         print("A-B loop mode")
         mp.osd_message("Cache write mode: A-B loop")
+    elseif value == "current" then
+        opts.dump_mode = "current"
+        print("Current position mode")
+        mp.osd_message("Cache write mode: Current position")
     else
         msg.warn("Invalid dump mode '" .. value .. "'")
     end
@@ -211,7 +221,7 @@ local function range_flip()
 end
 
 local function increment_filename()
-    if opts.dump_mode == "continuous" then
+    if opts.dump_mode == "continuous" or opts.dump_mode == "current" then
         file.name = file.path .. "/" .. file.title .. file.ext
     else
         file.name = file.path .. "/" .. file.title .. -file.inc .. file.ext
@@ -224,12 +234,17 @@ local function increment_filename()
 end
 
 local function range_stamp()
-    a_loop_osd = mp.get_property_osd("ab-loop-a"):gsub(":", ".")
-    b_loop_osd = mp.get_property_osd("ab-loop-b"):gsub(":", ".")
-    file.range = "[" .. a_loop_osd .. "-" .. b_loop_osd .. "]"
-    file.name = file.path .. "/" .. file.title .. "-" .. file.range .. file.ext
-    -- range label is incompatible with full dump, fallback to increment default
-    if opts.dump_mode == "continuous" then
+    if opts.dump_mode == "ab" then
+        a_loop_osd = mp.get_property_osd("ab-loop-a"):gsub(":", ".")
+        b_loop_osd = mp.get_property_osd("ab-loop-b"):gsub(":", ".")
+        file.range = "[" .. a_loop_osd .. "-" .. b_loop_osd .. "]"
+        file.name = file.path .. "/" .. file.title .. "-" .. file.range .. file.ext
+    elseif opts.dump_mode == "current" then
+        file.pos = mp.get_property_osd("playback-time"):gsub(":", ".")
+        file.range = "[" .. 0 .. "-" .. file.pos .. "]"
+        file.name = file.path .. "/" .. file.title .. file.range .. file.ext
+    else
+    -- range tag is incompatible with continuous dump, fallback to increments
         increment_filename()
     end
 end
@@ -254,7 +269,13 @@ local function cache_write()
                 file.inc = file.inc + 1
                 print("Cache dumped to " .. file.name)
             end
-        elseif opts.dump_mode == "continuous" then
+        elseif opts.dump_mode == "current" then
+            file.pos = mp.get_property_number("playback-time")
+            mp.commandv("async", "osd-msg", "dump-cache", "0", file.pos, file.name)
+            if utils.file_info(file.name) then
+                print("Cache dumped to " .. file.name)
+            end
+        else -- continuous dumping
             mp.commandv("async", "osd-msg", "dump-cache", "0", "no", file.name)
             if utils.file_info(file.name) then
                 print("Cache dumped to " .. file.name)
