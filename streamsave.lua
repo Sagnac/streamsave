@@ -296,10 +296,16 @@ local function align_cache()
     print("Adjusted range: " .. a_loop_osd .. " - " .. b_loop_osd)
 end
 
+-- stops writing the file
+local function stop()
+    mp.commandv("async", "osd-msg", "dump-cache", "0", "no", "")
+end
+
 mp.register_script_message("streamsave-mode", mode_switch)
 mp.register_script_message("streamsave-title", title_override)
 mp.register_script_message("streamsave-extension", format_override)
 
 mp.add_key_binding("Alt+z", "mode-switch", function() mode_switch("cycle") end)
+mp.add_key_binding("Ctrl+x", "stop-cache-write", stop)
 mp.add_key_binding("Alt+x", "align-cache", align_cache)
 mp.add_key_binding("Ctrl+z", "cache-write", cache_write)
