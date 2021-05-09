@@ -15,42 +15,44 @@ Default keybinds:
 It is advisable that you set `--demuxer-max-bytes` and `--demuxer-max-back-bytes` to larger values (e.g. at least 1GiB) in order to have a larger cache.  
 If you want to use with local files set `cache=yes` in mpv.conf
 
-mpv's `script-message` command can be used to set the dump mode or override the file extension by specifying `streamsave-mode` and `streamsave-extension` respectively.
-If you override the output file extension the `revert` argument can be used to set it back to the default auto-determined value.
+mpv's `script-message` command can be used to set the dump mode or override the output title or file extension by specifying `streamsave-mode`, `streamsave-title`, and `streamsave-extension` respectively.
+If you override the title or file extension the `revert` argument can be used to set it back to the default auto-determined value.
 
 Examples:
 ```
-script-message streamsave-mode ab
 script-message streamsave-mode continuous
+script-message streamsave-title "Example Title"
 script-message streamsave-extension .mkv
 script-message streamsave-extension revert
 ```
 
 ## Options
 
-if setting `save_directory` in `~~/script-opts/streamsave.conf` don't use quote marks or a trailing slash.
+Options are specified in `~~/script-opts/streamsave.conf`
 
-e.g. `save_directory=C:/User Directory`
+`save_directory` sets the output file directory. Don't use quote marks or a trailing slash when specifying paths here.
 
-mpv double tilde paths `~~/` are also accepted. By default files are dumped in the current directory.
+Example: `save_directory=C:/User Directory`
 
-`dump_mode=continuous` in streamsave.conf will use dump-cache, setting the initial timestamp to 0 and the end timestamp to "no".  
+mpv double tilde paths `~~/` and home path shortcuts `~/` are also accepted. By default files are dumped in the current directory.
+
+`dump_mode=continuous` will use dump-cache, setting the initial timestamp to 0 and the end timestamp to "no".
+
 Use this mode if you want to dump the entire cache.  
 This process will continue as packets are read and until the streams change or the player is closed.  
 Under this mode pressing the cache-write keybind again will stop writing the first file and initiate another file starting at 0 and continuing as the cache increases.  
 If you want continuous dumping with a different starting point use the default A-B mode instead and only set the first loop point then press the cache-write keybind.  
 
-The `output_label` option in streamsave.conf allows you to choose how the output filename is tagged.  
-The default uses a simple step increment for every file output; e.g. file-1.mkv, file-2.mkv, etc.  
-If a file with that name already exists in the same directory the increment is replaced with a Unix timestamp in order to prevent overwrites.
+The `output_label` option allows you to choose how the output filename is tagged.  
+The default uses a iterated step increments for every file output; e.g. file-1.mkv, file-2.mkv, etc.
 
 There are 3 other choices:
 
-`output_label=timestamp` will append Unix timestamps to all output files regardless and the script will forego the linear increments.
+`output_label=timestamp` will append Unix timestamps to the file name.
 
 `output_label=range` will tag the file with the A-B loop range instead using the format HH.MM.SS e.g. file-[00.15.00-00.20.00].mkv
 
-`output_label=overwrite` will use the iterated behavior of the default but will overwrite any existing files with the same name.
+`output_label=overwrite` will not tag the file and will overwrite any existing files with the same name.
 
 ## Known issues
 
