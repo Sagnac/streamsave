@@ -1,7 +1,7 @@
 --[[ 
 
 streamsave.lua
-Version 0.11.0
+Version 0.12.0
 2021-5-9
 https://github.com/Sagnac/streamsave
 
