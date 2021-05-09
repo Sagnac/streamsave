@@ -125,7 +125,7 @@ end
 local function title_change(name, media_title)
     if media_title then
         file.title = media_title:gsub("[\\/:*?\"<>|]", ".")
-        file.inc = 0
+        file.inc = 1
     end
 end
 mp.observe_property("media-title", "string", title_change)
@@ -179,7 +179,6 @@ mp.observe_property("audio-codec-name", "string", container)
 
 local function cache_write()
     if file.title and file.ext then
-        file.inc = file.inc + 1
         -- evaluate tagging conditions and set file name
         if opts.output_label == "increment" or opts.output_label == "overwrite" then
             file.name = file.path .. "/" .. file.title .. -file.inc .. file.ext
@@ -198,10 +197,16 @@ local function cache_write()
         -- dump cache according to mode
         if opts.dump_mode == "ab" then
             mp.commandv("async", "osd-msg", "ab-loop-dump-cache", file.name)
-            print("Cache dumped to " .. file.name)
+            if utils.file_info(file.name) then
+                file.inc = file.inc + 1
+                print("Cache dumped to " .. file.name)
+            end
         elseif opts.dump_mode == "continuous" then
             mp.commandv("async", "osd-msg", "dump-cache", "0", "no", file.name)
-            print("Cache dumped to " .. file.name)
+            if utils.file_info(file.name) then
+                file.inc = file.inc + 1
+                print("Cache dumped to " .. file.name)
+            end
         end
     end
 end
