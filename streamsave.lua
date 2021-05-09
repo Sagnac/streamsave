@@ -89,6 +89,7 @@ local file = {
     title,           -- media title
     inc,             -- filename increments
     ext,             -- file extension
+    oldtitle,        -- initialized if title is overridden, allows revert
     oldext,          -- initialized if format is overridden, allows revert
 }
 
@@ -126,6 +127,7 @@ local function title_change(name, media_title)
     if media_title then
         file.title = media_title:gsub("[\\/:*?\"<>|]", ".")
         file.inc = 1
+        file.oldtitle = nil
     end
 end
 mp.observe_property("media-title", "string", title_change)
@@ -158,6 +160,13 @@ local function container()
     end
 end
 
+--[[ video and audio formats observed in order to handle track changes
+useful if e.g. --script-opts=ytdl_hook-all_formats=yes
+or script-opts=ytdl_hook-use_manifests=yes ]]
+mp.observe_property("file-format", "string", container)
+mp.observe_property("video-format", "string", container)
+mp.observe_property("audio-codec-name", "string", container)
+
 -- Allow user override of file extension
 local function format_override(ext)
     file.oldext = file.oldext or file.ext
@@ -167,15 +176,20 @@ local function format_override(ext)
         file.ext = ext
     end
     print("file extension changed to " .. file.ext)
-    mp.osd_message("streamsave file extension changed to " .. file.ext)
+    mp.osd_message("streamsave: file extension changed to " .. file.ext)
 end
 
---[[ video and audio formats observed in order to handle track changes
-useful if e.g. --script-opts=ytdl_hook-all_formats=yes
-or script-opts=ytdl_hook-use_manifests=yes ]]
-mp.observe_property("file-format", "string", container)
-mp.observe_property("video-format", "string", container)
-mp.observe_property("audio-codec-name", "string", container)
+-- Allow user override of title
+local function title_override(title)
+    file.oldtitle = file.oldtitle or file.title
+    if title == "revert" then
+        file.title = file.oldtitle
+    else
+        file.title = title
+    end
+    print("title changed to " .. file.title)
+    mp.osd_message("streamsave: title changed to " .. file.title)
+end
 
 local function cache_write()
     if file.title and file.ext then
@@ -223,6 +237,7 @@ local function align_cache()
 end
 
 mp.register_script_message("streamsave-mode", mode_switch)
+mp.register_script_message("streamsave-title", title_override)
 mp.register_script_message("streamsave-extension", format_override)
 
 mp.add_key_binding("Alt+z", "mode-switch", function() mode_switch("cycle") end)
