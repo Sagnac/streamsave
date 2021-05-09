@@ -67,6 +67,21 @@ local opts = {
 }
 options.read_options(opts, "streamsave", function() update_opts() end)
 
+-- for internal use
+local file = {
+    name,            -- file name
+    path,            -- file path
+    title,           -- media title
+    inc,             -- filename increments
+    range,           -- A-B loop range used to tag file
+    ext,             -- file extension
+    oldtitle,        -- initialized if title is overridden, allows revert
+    oldext,          -- initialized if format is overridden, allows revert
+}
+
+local a_loop_point
+local b_loop_point
+
 local function validate_opts()
     if opts.output_label ~= "increment" and
        opts.output_label ~= "range" and
@@ -81,17 +96,6 @@ local function validate_opts()
         opts.dump_mode = "ab"
     end
 end
-
--- for internal use
-local file = {
-    name,            -- file name
-    path,            -- file path
-    title,           -- media title
-    inc,             -- filename increments
-    ext,             -- file extension
-    oldtitle,        -- initialized if title is overridden, allows revert
-    oldext,          -- initialized if format is overridden, allows revert
-}
 
 function update_opts()
     -- expand mpv meta paths (e.g. ~~/directory)
@@ -191,22 +195,41 @@ local function title_override(title)
     mp.osd_message("streamsave: title changed to " .. file.title)
 end
 
+local function increment_filename()
+    if opts.dump_mode == "continuous" then
+        file.name = file.path .. "/" .. file.title .. file.ext
+    else
+        file.name = file.path .. "/" .. file.title .. -file.inc .. file.ext
+    end
+    -- check if file exists
+    while utils.file_info(file.name) do
+        file.inc = file.inc + 1
+        file.name = file.path .. "/" .. file.title .. -file.inc .. file.ext
+    end
+end
+
+local function range_stamp()
+    a_loop_point = mp.get_property_osd("ab-loop-a"):gsub(":", ".")
+    b_loop_point = mp.get_property_osd("ab-loop-b"):gsub(":", ".")
+    file.range = "[" .. a_loop_point .. "-" .. b_loop_point .. "]"
+    file.name = file.path .. "/" .. file.title .. "-" .. file.range .. file.ext
+    -- range label is incompatible with full dump, fallback to increment default
+    if opts.dump_mode == "continuous" then
+        increment_filename()
+    end
+end
+
 local function cache_write()
     if file.title and file.ext then
         -- evaluate tagging conditions and set file name
-        if opts.output_label == "increment" or opts.output_label == "overwrite" then
-            file.name = file.path .. "/" .. file.title .. -file.inc .. file.ext
-        end
-        if opts.output_label == "range" then
-            local a_loop_point = mp.get_property_osd("ab-loop-a"):gsub(":", ".")
-            local b_loop_point = mp.get_property_osd("ab-loop-b"):gsub(":", ".")
-            local t_range = "[" .. a_loop_point .. "-" .. b_loop_point .. "]"
-            file.name = file.path .. "/" .. file.title .. "-" .. t_range .. file.ext
-        -- check if file exists, timestamp file name if so
-        elseif opts.output_label == "timestamp"
-            or (utils.file_info(file.name) and opts.output_label ~= "overwrite")
-        then
+        if opts.output_label == "increment" then
+            increment_filename()
+        elseif opts.output_label == "range" then
+            range_stamp()
+        elseif opts.output_label == "timestamp" then
             file.name = file.path .. "/" .. file.title .. -os.time() .. file.ext
+        elseif opts.output_label == "overwrite" then
+            file.name = file.path .. "/" .. file.title .. file.ext
         end
         -- dump cache according to mode
         if opts.dump_mode == "ab" then
@@ -218,7 +241,6 @@ local function cache_write()
         elseif opts.dump_mode == "continuous" then
             mp.commandv("async", "osd-msg", "dump-cache", "0", "no", file.name)
             if utils.file_info(file.name) then
-                file.inc = file.inc + 1
                 print("Cache dumped to " .. file.name)
             end
         end
@@ -231,8 +253,8 @@ Keep in mind this changes the A-B loop points you've set.
 This is sometimes inaccurate. ]]
 local function align_cache()
     mp.commandv("osd-msg", "ab-loop-align-cache")
-    local a_loop_point = mp.get_property_osd("ab-loop-a")
-    local b_loop_point = mp.get_property_osd("ab-loop-b")
+    a_loop_point = mp.get_property_osd("ab-loop-a")
+    b_loop_point = mp.get_property_osd("ab-loop-b")
     print("Adjusted range: " .. a_loop_point .. " - " .. b_loop_point)
 end
 
