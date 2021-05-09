@@ -13,26 +13,34 @@ It is advisable that you set --demuxer-max-bytes and --demuxer-max-back-bytes to
 If you want to use with local files set cache=yes in mpv.conf
 
 Options are specified in ~~/script-opts/streamsave.conf
+
 save_directory sets the output file directory. Don't use quote marks or a trailing slash when specifying paths here.
 Example: save_directory=C:/User Directory
 mpv double tilde paths ~~/ and home path shortcuts ~/ are also accepted.
 By default files are dumped in the current directory.
 
-dump_mode=continuous will use dump-cache, setting the initial timestamp to 0 and the end timestamp to "no".
+dump_mode=continuous will use dump-cache, setting the initial timestamp to 0 and leaving the end timestamp unset.
+
 Use this mode if you want to dump the entire cache.
-This process will continue as packets are read and until the streams change or the player is closed.
+This process will continue as packets are read and until the streams change, the player is closed, or the user presses the stop keybind.
+
 Under this mode pressing the cache-write keybind again will stop writing the first file and initiate another file starting at 0 and continuing as the cache increases.
 If you want continuous dumping with a different starting point use the default A-B mode instead and only set the first loop point then press the cache-write keybind.
 
+dump_mode=current will dump the cache from timestamp 0 to the current playback position in the file.
+
 The output_label option allows you to choose how the output filename is tagged.
 The default uses iterated step increments for every file output; e.g. file-1.mkv, file-2.mkv, etc.
+
 There are 3 other choices:
 output_label=timestamp will append Unix timestamps to the file name.
 output_label=range will tag the file with the A-B loop range instead using the format HH.MM.SS e.g. file-[00.15.00-00.20.00].mkv
 output_label=overwrite will not tag the file and will overwrite any existing files with the same name.
 
-mpv's script-message command can be used to set the dump mode or override the output title or file extension by specifying streamsave-mode, streamsave-title, and streamsave-extension respectively.
+mpv's script-message command can be used to set the dump mode and override the output title or file extension by
+specifying streamsave-mode, streamsave-title, and streamsave-extension respectively.
 If you override the title or file extension, the revert argument can be used to set it back to the default auto-determined value.
+
 Examples:
 script-message streamsave-mode continuous
 script-message streamsave-title "Example Title"
@@ -64,7 +72,7 @@ local msg = require 'mp.msg'
 local opts = {
     save_directory = [[.]],         -- output file directory
     dump_mode = "ab",               -- <ab|current|continuous>
-    output_label = "increment",     -- filename tags <range|timestamp|overwrite>
+    output_label = "increment",     -- <increment|range|timestamp|overwrite>
 }
 options.read_options(opts, "streamsave", function() update_opts() end)
 
