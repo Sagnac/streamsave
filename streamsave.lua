@@ -243,7 +243,6 @@ end
 
 local function range_stamp()
     if opts.dump_mode == "ab" then
-        range_flip()
         a_loop_osd = mp.get_property_osd("ab-loop-a"):gsub(":", ".")
         b_loop_osd = mp.get_property_osd("ab-loop-b"):gsub(":", ".")
         file.range = "-[" .. a_loop_osd .. "-" .. b_loop_osd .. "]"
@@ -260,6 +259,7 @@ end
 
 local function cache_write()
     if file.title and file.ext then
+        range_flip()
         -- evaluate tagging conditions and set file name
         if opts.output_label == "increment" then
             increment_filename()
@@ -272,7 +272,6 @@ local function cache_write()
         end
         -- dump cache according to mode
         if opts.dump_mode == "ab" then
-            range_flip()
             mp.commandv("async", "osd-msg", "ab-loop-dump-cache", file.name)
             if utils.file_info(file.name) then
                 file.inc = file.inc + 1
