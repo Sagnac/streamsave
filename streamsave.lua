@@ -221,10 +221,10 @@ local function range_flip()
 end
 
 local function increment_filename()
-    if opts.dump_mode == "continuous" or opts.dump_mode == "current" then
-        file.name = file.path .. "/" .. file.title .. file.ext
-    else
+    if opts.dump_mode == "ab" then
         file.name = file.path .. "/" .. file.title .. -file.inc .. file.ext
+    else
+        file.name = file.path .. "/" .. file.title .. file.ext
     end
     -- check if file exists
     while utils.file_info(file.name) do
@@ -265,21 +265,14 @@ local function cache_write()
         -- dump cache according to mode
         if opts.dump_mode == "ab" then
             mp.commandv("async", "osd-msg", "ab-loop-dump-cache", file.name)
-            if utils.file_info(file.name) then
-                file.inc = file.inc + 1
-                print("Cache dumped to " .. file.name)
-            end
         elseif opts.dump_mode == "current" then
             file.pos = mp.get_property_number("playback-time")
             mp.commandv("async", "osd-msg", "dump-cache", "0", file.pos, file.name)
-            if utils.file_info(file.name) then
-                print("Cache dumped to " .. file.name)
-            end
         else -- continuous dumping
             mp.commandv("async", "osd-msg", "dump-cache", "0", "no", file.name)
-            if utils.file_info(file.name) then
-                print("Cache dumped to " .. file.name)
-            end
+        end
+        if utils.file_info(file.name) then
+            print("Cache dumped to " .. file.name)
         end
     end
 end
