@@ -19,7 +19,8 @@ Default keybinds:
 
 ----
 
-It is advisable that you set `--demuxer-max-bytes` and `--demuxer-max-back-bytes` to larger values (e.g. at least 1GiB) in order to have a larger cache.  
+It is advisable that you set `--demuxer-max-bytes` and `--demuxer-max-back-bytes` to larger values (e.g. at least 1GiB) in order to have a larger cache.
+
 If you want to use with local files set `cache=yes` in mpv.conf
 
 ----
@@ -38,6 +39,8 @@ script-message streamsave-extension revert
 ## Options
 
 Options are specified in `~~/script-opts/streamsave.conf`
+
+Runtime changes to all user options is supported via the `script-opts` property by using the `set` or `change-list` input commands and the `streamsave-` prefix.
 
 ----
 
@@ -63,13 +66,14 @@ If you want continuous dumping with a different starting point use the default A
 ----
 
 The `output_label` option allows you to choose how the output filename is tagged.  
-The default uses iterated step increments for every file output; e.g. file-1.mkv, file-2.mkv, etc.
+The default uses iterated step increments for every file output; i.e. file-1.mkv, file-2.mkv, etc.  
+Outside of A-B clip mode the first file will not be tagged, only subsequent files with the same title.
 
 There are 3 other choices:
 
 `output_label=timestamp` will append Unix timestamps to the file name.
 
-`output_label=range` will tag the file with the A-B loop range instead using the format HH.MM.SS e.g. file-\[00.15.00-00.20.00\].mkv
+`output_label=range` will tag the file with the A-B loop range instead using the format HH.MM.SS (e.g. file-\[00.15.00-00.20.00\].mkv)
 
 `output_label=overwrite` will not tag the file and will overwrite any existing files with the same name.
 
@@ -77,8 +81,7 @@ There are 3 other choices:
 
 Known issues and bugs with the `dump-cache` command:  
 * Won't work with some high FPS streams (too many queued packets error)  
-* Errors on some videos if you use the default youtube-dl format selection
-e.g. dump-cache won't write vp9 + aac with mp4a tags to mkv
+* Errors on some videos if you use the default youtube-dl format selection (e.g. dump-cache won't write vp9 + aac with mp4a tags to mkv)
 
 To ensure compatibility it is recommended that you set `--ytdl-format` to:
 

@@ -14,6 +14,8 @@ If you want to use with local files set cache=yes in mpv.conf
 
 Options are specified in ~~/script-opts/streamsave.conf
 
+Runtime changes to all user options is supported via the `script-opts` property by using the `set` or `change-list` input commands and the `streamsave-` prefix.
+
 save_directory sets the output file directory. Don't use quote marks or a trailing slash when specifying paths here.
 Example: save_directory=C:/User Directory
 mpv double tilde paths ~~/ and home path shortcuts ~/ are also accepted.
@@ -30,7 +32,8 @@ If you want continuous dumping with a different starting point use the default A
 dump_mode=current will dump the cache from timestamp 0 to the current playback position in the file.
 
 The output_label option allows you to choose how the output filename is tagged.
-The default uses iterated step increments for every file output; e.g. file-1.mkv, file-2.mkv, etc.
+The default uses iterated step increments for every file output; i.e. file-1.mkv, file-2.mkv, etc.
+Outside of A-B clip mode the first file will not be tagged, only subsequent files with the same title.
 
 There are 3 other choices:
 output_label=timestamp will append Unix timestamps to the file name.
@@ -78,8 +81,8 @@ options.read_options(opts, "streamsave", function() update_opts() end)
 
 -- for internal use
 local file = {
-    name,            -- file name
-    path,            -- file path
+    name,            -- file name (full path to file)
+    path,            -- directory the file is written to
     title,           -- media title
     inc,             -- filename increments
     range,           -- range used to tag file
