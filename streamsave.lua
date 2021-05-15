@@ -82,17 +82,12 @@ local file = {
     path,            -- file path
     title,           -- media title
     inc,             -- filename increments
-    range,           -- A-B loop range used to tag file
+    range,           -- range used to tag file
     ext,             -- file extension
     pos,             -- current position in file (playback-time)
     oldtitle,        -- initialized if title is overridden, allows revert
     oldext,          -- initialized if format is overridden, allows revert
 }
-
-local a_loop
-local b_loop
-local a_loop_osd
-local b_loop_osd
 
 local function validate_opts()
     if opts.output_label ~= "increment" and
@@ -217,14 +212,11 @@ local function title_override(title)
 end
 
 local function range_flip()
-    a_loop = mp.get_property_number("ab-loop-a")
-    b_loop = mp.get_property_number("ab-loop-b")
-    if a_loop and b_loop then
-        if a_loop > b_loop then
-            a_loop, b_loop = b_loop, a_loop
-            mp.set_property_number("ab-loop-a", a_loop)
-            mp.set_property_number("ab-loop-b", b_loop)
-        end
+    local a_loop = mp.get_property_number("ab-loop-a")
+    local b_loop = mp.get_property_number("ab-loop-b")
+    if (a_loop and b_loop) and (a_loop > b_loop) then
+        mp.set_property_number("ab-loop-a", b_loop)
+        mp.set_property_number("ab-loop-b", a_loop)
     end
 end
 
@@ -243,8 +235,8 @@ end
 
 local function range_stamp()
     if opts.dump_mode == "ab" then
-        a_loop_osd = mp.get_property_osd("ab-loop-a"):gsub(":", ".")
-        b_loop_osd = mp.get_property_osd("ab-loop-b"):gsub(":", ".")
+        local a_loop_osd = mp.get_property_osd("ab-loop-a"):gsub(":", ".")
+        local b_loop_osd = mp.get_property_osd("ab-loop-b"):gsub(":", ".")
         file.range = "-[" .. a_loop_osd .. "-" .. b_loop_osd .. "]"
         file.name = file.path .. "/" .. file.title .. file.range .. file.ext
     elseif opts.dump_mode == "current" then
@@ -299,8 +291,8 @@ This is sometimes inaccurate. ]]
 local function align_cache()
     range_flip()
     mp.commandv("osd-msg", "ab-loop-align-cache")
-    a_loop_osd = mp.get_property_osd("ab-loop-a")
-    b_loop_osd = mp.get_property_osd("ab-loop-b")
+    local a_loop_osd = mp.get_property_osd("ab-loop-a")
+    local b_loop_osd = mp.get_property_osd("ab-loop-b")
     print("Adjusted range: " .. a_loop_osd .. " - " .. b_loop_osd)
 end
 
