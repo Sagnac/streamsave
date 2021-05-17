@@ -77,7 +77,6 @@ local opts = {
     dump_mode = "ab",               -- <ab|current|continuous>
     output_label = "increment",     -- <increment|range|timestamp|overwrite>
 }
-options.read_options(opts, "streamsave", function() update_opts() end)
 
 -- for internal use
 local file = {
@@ -110,11 +109,13 @@ local function validate_opts()
     end
 end
 
-function update_opts()
+local function update_opts()
     -- expand mpv meta paths (e.g. ~~/directory)
     file.path = mp.command_native({"expand-path", opts.save_directory})
     validate_opts()
 end
+
+options.read_options(opts, "streamsave", update_opts)
 update_opts()
 
 -- dump mode switching
