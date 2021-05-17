@@ -120,6 +120,7 @@ update_opts()
 
 -- dump mode switching
 local function mode_switch(value)
+    value = value or opts.dump_mode
     if value == "cycle" then
         if opts.dump_mode == "ab" then
             value = "current"
@@ -193,6 +194,7 @@ mp.observe_property("audio-codec-name", "string", container)
 
 -- Allow user override of file extension
 local function format_override(ext)
+    ext = ext or file.ext
     file.oldext = file.oldext or file.ext
     if ext == "revert" then
         file.ext = file.oldext
@@ -205,6 +207,7 @@ end
 
 -- Allow user override of title
 local function title_override(title)
+    title = title or file.title
     file.oldtitle = file.oldtitle or file.title
     if title == "revert" then
         file.title = file.oldtitle
