@@ -89,7 +89,13 @@ local file = {
     pos,             -- current position in file (playback-time)
     oldtitle,        -- initialized if title is overridden, allows revert
     oldext,          -- initialized if format is overridden, allows revert
+    aligned,         -- are the loop points aligned to keyframes?
 }
+
+local a_loop
+local b_loop
+local a_loop_revert
+local b_loop_revert
 
 local function validate_opts()
     if opts.output_label ~= "increment" and
@@ -219,11 +225,12 @@ local function title_override(title)
 end
 
 local function range_flip()
-    local a_loop = mp.get_property_number("ab-loop-a")
-    local b_loop = mp.get_property_number("ab-loop-b")
+    a_loop = mp.get_property_number("ab-loop-a")
+    b_loop = mp.get_property_number("ab-loop-b")
     if (a_loop and b_loop) and (a_loop > b_loop) then
-        mp.set_property_number("ab-loop-a", b_loop)
-        mp.set_property_number("ab-loop-b", a_loop)
+        a_loop, b_loop = b_loop, a_loop
+        mp.set_property_number("ab-loop-a", a_loop)
+        mp.set_property_number("ab-loop-b", b_loop)
     end
 end
 
@@ -289,11 +296,24 @@ Use align-cache if you want to know which range will likely be dumped.
 Keep in mind this changes the A-B loop points you've set.
 This is sometimes inaccurate. ]]
 local function align_cache()
-    range_flip()
-    mp.commandv("osd-msg", "ab-loop-align-cache")
-    local a_loop_osd = mp.get_property_osd("ab-loop-a")
-    local b_loop_osd = mp.get_property_osd("ab-loop-b")
-    print("Adjusted range: " .. a_loop_osd .. " - " .. b_loop_osd)
+    if not file.aligned then
+        range_flip()
+        a_loop_revert = a_loop
+        b_loop_revert = b_loop
+        mp.commandv("osd-msg", "ab-loop-align-cache")
+        file.aligned = true
+        local a_loop_osd = mp.get_property_osd("ab-loop-a")
+        local b_loop_osd = mp.get_property_osd("ab-loop-b")
+        print("Adjusted range: " .. a_loop_osd .. " - " .. b_loop_osd)
+    else
+        mp.set_property_native("ab-loop-a", a_loop_revert)
+        mp.set_property_native("ab-loop-b", b_loop_revert)
+        file.aligned = false
+        local a_loop_osd = mp.get_property_osd("ab-loop-a")
+        local b_loop_osd = mp.get_property_osd("ab-loop-b")
+        print("Loop points reverted to: " .. a_loop_osd .. " - " .. b_loop_osd)
+        mp.osd_message("A-B loop: " .. a_loop_osd .. " - " .. b_loop_osd)
+    end
 end
 
 -- stops writing the file
