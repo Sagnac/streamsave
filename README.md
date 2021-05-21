@@ -1,9 +1,16 @@
 # streamsave.lua
 
-[mpv](https://github.com/mpv-player/mpv) script aimed at saving live streams and clipping online videos without encoding.  
-Determines the output file name and format automatically when writing streams to disk from cache using a keybind.
+[mpv](https://github.com/mpv-player/mpv) script aimed at saving live streams and clipping online videos without encoding.
 
-By default your A-B loop points (default `l` key in mpv) determine the range. Inverted loop ranges are also accepted, allowing you to set the end point first.
+Essentially a wrapper around mpv's cache dumping commands, the script adds the following functionality:
+
+* Automatic determination of the output file name and format
+* Option to specify the preferred output directory
+* Switch between 3 different dump modes (clip mode, full/continuous dump, write from beginning to current position)
+* Prevention of file overwrites
+* Acceptance of inverted loop ranges, allowing the end point to be set first
+
+By default the A-B loop points (set using the `l` key in mpv) determine the portion of the cache written to disk.
 
 ----
 
@@ -13,7 +20,7 @@ Default keybinds:
 
 `Alt+z` cycles dump mode
 
-`Alt+x` aligns loop points to keyframes
+`Alt+x` aligns loop points to keyframes (pressing again will restore the initial loop points)
 
 `Ctrl+x` stops continuous dumping
 
@@ -40,7 +47,7 @@ script-message streamsave-extension revert
 
 Options are specified in `~~/script-opts/streamsave.conf`
 
-Runtime changes to all user options is supported via the `script-opts` property by using the `set` or `change-list` input commands and the `streamsave-` prefix.
+Runtime changes to all user options are supported via the `script-opts` property by using mpv's `set` or `change-list` input commands and the `streamsave-` prefix.
 
 ----
 

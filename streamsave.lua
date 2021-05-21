@@ -6,15 +6,23 @@ Version 0.12.3
 https://github.com/Sagnac/streamsave
 
 mpv script aimed at saving live streams and clipping online videos without encoding.
-Determines the output file name and format automatically when writing streams to disk from cache using a keybind.
-By default your A-B loop points determine the range.
+
+Essentially a wrapper around mpv's cache dumping commands, the script adds the following functionality:
+
+* Automatic determination of the output file name and format
+* Option to specify the preferred output directory
+* Switch between 3 different dump modes (clip mode, full/continuous dump, write from beginning to current position)
+* Prevention of file overwrites
+* Acceptance of inverted loop ranges, allowing the end point to be set first
+
+By default the A-B loop points (set using the `l` key in mpv) determine the portion of the cache written to disk.
 
 It is advisable that you set --demuxer-max-bytes and --demuxer-max-back-bytes to larger values (e.g. at least 1GiB) in order to have a larger cache.
 If you want to use with local files set cache=yes in mpv.conf
 
 Options are specified in ~~/script-opts/streamsave.conf
 
-Runtime changes to all user options is supported via the `script-opts` property by using the `set` or `change-list` input commands and the `streamsave-` prefix.
+Runtime changes to all user options are supported via the `script-opts` property by using mpv's `set` or `change-list` input commands and the `streamsave-` prefix.
 
 save_directory sets the output file directory. Don't use quote marks or a trailing slash when specifying paths here.
 Example: save_directory=C:/User Directory
@@ -294,7 +302,8 @@ end
 --[[ This command attempts to align the A-B loop points to keyframes.
 Use align-cache if you want to know which range will likely be dumped.
 Keep in mind this changes the A-B loop points you've set.
-This is sometimes inaccurate. ]]
+This is sometimes inaccurate. Calling align_cache() again will reset the points
+to their initial values. ]]
 local function align_cache()
     if not file.aligned then
         range_flip()
