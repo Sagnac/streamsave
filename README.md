@@ -6,7 +6,10 @@ Essentially a wrapper around mpv's cache dumping commands, the script adds the f
 
 * Automatic determination of the output file name and format
 * Option to specify the preferred output directory
-* Switch between 3 different dump modes (clip mode, full/continuous dump, write from beginning to current position)
+* Switch between 3 different dump modes:
+  * clip mode
+  * full/continuous dump
+  * write from beginning to current position
 * Prevention of file overwrites
 * Acceptance of inverted loop ranges, allowing the end point to be set first
 
@@ -80,7 +83,7 @@ There are 3 other choices:
 
 `output_label=timestamp` will append Unix timestamps to the file name.
 
-`output_label=range` will tag the file with the A-B loop range instead using the format HH.MM.SS (e.g. file-\[00.15.00-00.20.00\].mkv)
+`output_label=range` will tag the file with the A-B loop range instead using the format HH.MM.SS (e.g. file-\[00.15.00 - 00.20.00\].mkv)
 
 `output_label=overwrite` will not tag the file and will overwrite any existing files with the same name.
 

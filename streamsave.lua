@@ -45,7 +45,8 @@ Outside of A-B clip mode the first file will not be tagged, only subsequent file
 
 There are 3 other choices:
 output_label=timestamp will append Unix timestamps to the file name.
-output_label=range will tag the file with the A-B loop range instead using the format HH.MM.SS e.g. file-[00.15.00-00.20.00].mkv
+output_label=range will tag the file with the A-B loop range instead using the format HH.MM.SS
+e.g. file-[00.15.00 - 00.20.00].mkv
 output_label=overwrite will not tag the file and will overwrite any existing files with the same name.
 
 mpv's script-message command can be used to set the dump mode and override the output title or file extension by
