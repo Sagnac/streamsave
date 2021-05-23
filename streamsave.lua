@@ -92,18 +92,19 @@ local file = {
     path,            -- directory the file is written to
     title,           -- media title
     inc,             -- filename increments
-    range,           -- range used to tag file
     ext,             -- file extension
-    pos,             -- current position in file (playback-time)
     oldtitle,        -- initialized if title is overridden, allows revert
     oldext,          -- initialized if format is overridden, allows revert
-    aligned,         -- are the loop points aligned to keyframes?
 }
 
-local a_loop
-local b_loop
-local a_loop_revert
-local b_loop_revert
+local loop = {
+    a,               -- A loop point as number type
+    b,               -- B loop point as number type
+    a_revert,        -- A loop point prior to keyframe alignment
+    b_revert,        -- B loop point prior to keyframe alignment
+    range,           -- A-B loop range
+    aligned,         -- are the loop points aligned to keyframes?
+}
 
 local function validate_opts()
     if opts.output_label ~= "increment" and
@@ -233,13 +234,20 @@ local function title_override(title)
 end
 
 local function range_flip()
-    a_loop = mp.get_property_number("ab-loop-a")
-    b_loop = mp.get_property_number("ab-loop-b")
-    if (a_loop and b_loop) and (a_loop > b_loop) then
-        a_loop, b_loop = b_loop, a_loop
-        mp.set_property_number("ab-loop-a", a_loop)
-        mp.set_property_number("ab-loop-b", b_loop)
+    loop.a = mp.get_property_number("ab-loop-a")
+    loop.b = mp.get_property_number("ab-loop-b")
+    if (loop.a and loop.b) and (loop.a > loop.b) then
+        loop.a, loop.b = loop.b, loop.a
+        mp.set_property_number("ab-loop-a", loop.a)
+        mp.set_property_number("ab-loop-b", loop.b)
     end
+end
+
+local function loop_range()
+    local a_loop_osd = mp.get_property_osd("ab-loop-a")
+    local b_loop_osd = mp.get_property_osd("ab-loop-b")
+    loop.range = a_loop_osd .. " - " .. b_loop_osd
+    return loop.range
 end
 
 local function increment_filename()
@@ -257,16 +265,14 @@ end
 
 local function range_stamp()
     if opts.dump_mode == "ab" then
-        local a_loop_osd = mp.get_property_osd("ab-loop-a"):gsub(":", ".")
-        local b_loop_osd = mp.get_property_osd("ab-loop-b"):gsub(":", ".")
-        file.range = "-[" .. a_loop_osd .. "-" .. b_loop_osd .. "]"
-        file.name = file.path .. "/" .. file.title .. file.range .. file.ext
+        local file_range = "-[" .. loop_range():gsub(":", ".") .. "]"
+        file.name = file.path .. "/" .. file.title .. file_range .. file.ext
     elseif opts.dump_mode == "current" then
-        file.pos = mp.get_property_osd("playback-time"):gsub(":", ".")
-        file.range = "-[" .. 0 .. "-" .. file.pos .. "]"
-        file.name = file.path .. "/" .. file.title .. file.range .. file.ext
+        local file_pos = mp.get_property_osd("playback-time")
+        local file_range = "-[" .. 0 .. " - " .. file_pos:gsub(":", ".") .. "]"
+        file.name = file.path .. "/" .. file.title .. file_range .. file.ext
     else
-    -- range tag is incompatible with full dump, fallback to increments
+        -- range tag is incompatible with full dump, fallback to increments
         increment_filename()
     end
 end
@@ -288,8 +294,8 @@ local function cache_write()
         if opts.dump_mode == "ab" then
             mp.commandv("async", "osd-msg", "ab-loop-dump-cache", file.name)
         elseif opts.dump_mode == "current" then
-            file.pos = mp.get_property_number("playback-time")
-            mp.commandv("async", "osd-msg", "dump-cache", "0", file.pos, file.name)
+            local file_pos = mp.get_property_number("playback-time")
+            mp.commandv("async", "osd-msg", "dump-cache", "0", file_pos, file.name)
         else -- continuous dumping
             mp.commandv("async", "osd-msg", "dump-cache", "0", "no", file.name)
         end
@@ -305,23 +311,19 @@ Keep in mind this changes the A-B loop points you've set.
 This is sometimes inaccurate. Calling align_cache() again will reset the points
 to their initial values. ]]
 local function align_cache()
-    if not file.aligned then
+    if not loop.aligned then
         range_flip()
-        a_loop_revert = a_loop
-        b_loop_revert = b_loop
+        loop.a_revert = loop.a
+        loop.b_revert = loop.b
         mp.commandv("osd-msg", "ab-loop-align-cache")
-        file.aligned = true
-        local a_loop_osd = mp.get_property_osd("ab-loop-a")
-        local b_loop_osd = mp.get_property_osd("ab-loop-b")
-        print("Adjusted range: " .. a_loop_osd .. " - " .. b_loop_osd)
+        loop.aligned = true
+        print("Adjusted range: " .. loop_range())
     else
-        mp.set_property_native("ab-loop-a", a_loop_revert)
-        mp.set_property_native("ab-loop-b", b_loop_revert)
-        file.aligned = false
-        local a_loop_osd = mp.get_property_osd("ab-loop-a")
-        local b_loop_osd = mp.get_property_osd("ab-loop-b")
-        print("Loop points reverted to: " .. a_loop_osd .. " - " .. b_loop_osd)
-        mp.osd_message("A-B loop: " .. a_loop_osd .. " - " .. b_loop_osd)
+        mp.set_property_native("ab-loop-a", loop.a_revert)
+        mp.set_property_native("ab-loop-b", loop.b_revert)
+        loop.aligned = false
+        print("Loop points reverted to: " .. loop_range())
+        mp.osd_message("A-B loop: " .. loop.range)
     end
 end
 
