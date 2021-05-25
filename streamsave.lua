@@ -176,22 +176,20 @@ mp.observe_property("media-title", "string", title_change)
 -- Determine proper container for compatibility
 local function container()
     local file_format = mp.get_property("file-format")
-    local video_format = mp.get_property("video-format")
-    local audio_format = mp.get_property("audio-codec-name")
+    local video = mp.get_property("video-format")
+    local audio = mp.get_property("audio-codec-name")
     if file_format then
         if string.find(file_format, "mpegts") or
            string.find(file_format, "hls")
         then
             file.ext = ".ts"
         elseif string.find(file_format, "mp4")
-            or ((video_format == "h264" or not video_format)
-                and (audio_format == "aac" or not audio_format))
+            or ((video == "h264" or video == "av1" or not video) and
+                (audio == "aac" or not audio))
         then
             file.ext = ".mp4"
-        elseif (video_format == "vp8" or video_format == "vp9"
-                or not video_format)
-           and (audio_format == "opus" or audio_format == "vorbis"
-                or not audio_format)
+        elseif (video == "vp8" or video == "vp9" or not video)
+           and (audio == "opus" or audio == "vorbis" or not audio)
         then
             file.ext = ".webm"
         else
