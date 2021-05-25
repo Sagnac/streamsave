@@ -25,7 +25,7 @@ Options are specified in ~~/script-opts/streamsave.conf
 Runtime changes to all user options are supported via the `script-opts` property by using mpv's `set` or `change-list` input commands and the `streamsave-` prefix.
 
 save_directory sets the output file directory. Don't use quote marks or a trailing slash when specifying paths here.
-Example: save_directory=C:/User Directory
+Example: save_directory=C:\User Directory
 mpv double tilde paths ~~/ and home path shortcuts ~/ are also accepted.
 By default files are dumped in the current directory.
 
