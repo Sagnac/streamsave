@@ -49,6 +49,10 @@ output_label=range will tag the file with the A-B loop range instead using the f
 e.g. file-[00.15.00 - 00.20.00].mkv
 output_label=overwrite will not tag the file and will overwrite any existing files with the same name.
 
+The force_extension option allows you to force a preferred format and sidestep the automatic detection.
+If using this option it is recommended that a highly flexible container is used (e.g. Matroska).
+The format is specified as the extension including the dot (e.g. force_extension=.mkv).
+
 mpv's script-message command can be used to set the dump mode and override the output title or file extension by
 specifying streamsave-mode, streamsave-title, and streamsave-extension respectively.
 If you override the title or file extension, the revert argument can be used to set it back to the default auto-determined value.
@@ -58,20 +62,6 @@ script-message streamsave-mode continuous
 script-message streamsave-title "Example Title"
 script-message streamsave-extension .mkv
 script-message streamsave-extension revert
-
-Known issues and bugs with the dump-cache command:
-Won't work with some high FPS streams (too many queued packets error)
-Errors on some videos if you use the default youtube-dl format selection
-e.g. dump-cache won't write vp9 + aac with mp4a tags to mkv
-To ensure compatibility it is recommended that you set --ytdl-format to:
-
-bestvideo[ext=webm]+251/bestvideo[ext=mp4]+(258/256/140)/bestvideo[ext=webm]+(250/249)/best
-
-If you want to avoid the queued packet error altogether limit the format to videos with a frame rate less than 60 fps:
-
-bestvideo[ext=webm][fps<?60]+251/bestvideo[ext=mp4][fps<?60]+(258/256/140)/bestvideo[ext=webm][fps<?60]+(250/249)/best[fps<?60]/best
-
-Note you may still experience issues if the framerate is not known and a high fps stream is selected.
 
  ]]
 

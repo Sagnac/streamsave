@@ -1,17 +1,17 @@
-# streamsave.lua
+# [streamsave.lua](https://raw.githubusercontent.com/Sagnac/streamsave/master/streamsave.lua "streamsave.lua")
 
-[mpv](https://github.com/mpv-player/mpv) script aimed at saving live streams and clipping online videos without encoding.
+[mpv](https://github.com/mpv-player/mpv "mpv") script aimed at saving live streams and clipping online videos without encoding.
 
 Essentially a wrapper around mpv's cache dumping commands, the script adds the following functionality:
 
-* Automatic determination of the output file name and format
-* Option to specify the preferred output directory
+* Automatic determination of the output file name and format;
+* Option to specify the preferred output directory;
 * Switch between 3 different dump modes:
-  * clip mode
-  * full/continuous dump
-  * write from beginning to current position
-* Prevention of file overwrites
-* Acceptance of inverted loop ranges, allowing the end point to be set first
+  * clip mode;
+  * full/continuous dump;
+  * write from beginning to current position;
+* Prevention of file overwrites;
+* Acceptance of inverted loop ranges, allowing the end point to be set first.
 
 By default the A-B loop points (set using the `l` key in mpv) determine the portion of the cache written to disk.
 
@@ -45,6 +45,8 @@ script-message streamsave-title "Example Title"
 script-message streamsave-extension .mkv
 script-message streamsave-extension revert
 ```
+
+----
 
 ## Options
 
@@ -87,11 +89,24 @@ There are 3 other choices:
 
 `output_label=overwrite` will not tag the file and will overwrite any existing files with the same name.
 
+----
+
+The `force_extension` option allows you to force a preferred format and sidestep the automatic detection.  
+If using this option it is recommended that a highly flexible container is used (e.g. Matroska).  
+The format is specified as the extension including the dot (e.g. `force_extension=.mkv`).
+
+If this option is set, `script-message streamsave-extension revert` will run the automatic determination at runtime; running this command again will reset the extension to what's specified in `force_extension`.
+
+This option is disabled by default allowing the script to choose between MP4, WebM, and MKV depending on the input format.
+
+----
+
 ## Known issues
 
 Known issues and bugs with the `dump-cache` command:  
-* Won't work with some high FPS streams (too many queued packets error)  
-* Errors on some videos if you use the default youtube-dl format selection (e.g. dump-cache won't write vp9 + aac with mp4a tags to mkv)
+* Won't work with some high FPS streams (too many queued packets error) `[1]`  
+* Cache dumping FLAC streams is currently broken `[1]`  
+* Errors on some videos if you use the default youtube-dl format selection (e.g. dump-cache won't write vp9 + aac with mp4a tags to mkv) `[2]`
 
 To ensure compatibility it is recommended that you set `--ytdl-format` to:
 
@@ -106,3 +121,9 @@ bestvideo[ext=webm][fps<?60]+251/bestvideo[ext=mp4][fps<?60]+(258/256/140)/bestv
 ```
 
 Note you may still experience issues if the framerate is not known and a high fps stream is selected.
+
+**If you're using an older version of mpv and are receiving incompatible codec_tag errors with live streams (particularly HLS) use [v0.13.2](https://raw.githubusercontent.com/Sagnac/streamsave/b48726e65cd42f980e42fa04b69441ca446b1e43/streamsave.lua "v0.13.2") or force the .ts extension.**
+
+`[1]` Will be fixed with [mpv-player/mpv#8877](https://github.com/mpv-player/mpv/pull/8877 "mpv pull request #8877")
+
+`[2]` Fixed in [mpv-player/mpv@643c699](https://github.com/mpv-player/mpv/commit/643c699f2684987db6073ebe8a6ea76e56c87055 "mpv commit 643c699")
