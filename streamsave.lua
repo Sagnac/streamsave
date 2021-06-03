@@ -85,6 +85,7 @@ local opts = {
     save_directory = [[.]],         -- output file directory
     dump_mode = "ab",               -- <ab|current|continuous>
     output_label = "increment",     -- <increment|range|timestamp|overwrite>
+    force_extension = "no",         -- <no|.ext> extension will be .ext if set
 }
 
 -- for internal use
@@ -107,6 +108,8 @@ local loop = {
     aligned,         -- are the loop points aligned to keyframes?
 }
 
+local container
+
 local function validate_opts()
     if opts.output_label ~= "increment" and
        opts.output_label ~= "range" and
@@ -125,14 +128,19 @@ local function validate_opts()
     end
 end
 
-local function update_opts()
+local function update_opts(changed)
     -- expand mpv meta paths (e.g. ~~/directory)
     file.path = mp.command_native({"expand-path", opts.save_directory})
+    if opts.force_extension ~= "no" then
+        file.ext = opts.force_extension
+    elseif changed["force_extension"] then
+        container()
+    end
     validate_opts()
 end
 
 options.read_options(opts, "streamsave", update_opts)
-update_opts()
+update_opts({})
 
 -- dump mode switching
 local function mode_switch(value)
@@ -173,19 +181,17 @@ local function title_change(name, media_title)
 end
 mp.observe_property("media-title", "string", title_change)
 
--- Determine proper container for compatibility
-local function container()
+-- Determine container for standard formats
+function container()
+    if opts.force_extension ~= "no" and not file.oldext then
+        return end
     local file_format = mp.get_property("file-format")
     local video = mp.get_property("video-format")
     local audio = mp.get_property("audio-codec-name")
     if file_format then
-        if string.find(file_format, "mpegts") or
-           string.find(file_format, "hls")
-        then
-            file.ext = ".ts"
-        elseif string.find(file_format, "mp4")
-            or ((video == "h264" or video == "av1" or not video) and
-                (audio == "aac" or not audio))
+        if string.find(file_format, "mp4")
+           or ((video == "h264" or video == "av1" or not video) and
+               (audio == "aac" or not audio))
         then
             file.ext = ".mp4"
         elseif (video == "vp8" or video == "vp9" or not video)
@@ -210,7 +216,11 @@ mp.observe_property("audio-codec-name", "string", container)
 local function format_override(ext)
     ext = ext or file.ext
     file.oldext = file.oldext or file.ext
-    if ext == "revert" then
+    if ext == "revert" and file.ext == opts.force_extension then
+        container()
+    elseif ext == "revert" and opts.force_extension ~= "no" then
+        file.ext = opts.force_extension
+    elseif ext == "revert" then
         file.ext = file.oldext
     else
         file.ext = ext
