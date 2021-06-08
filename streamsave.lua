@@ -250,10 +250,11 @@ local function loop_range()
 end
 
 local function increment_filename()
-    if opts.dump_mode == "ab" then
-        file.name = file.path .. "/" .. file.title .. -file.inc .. file.ext
-    else
+    if opts.dump_mode ~= "ab" then
         file.name = file.path .. "/" .. file.title .. file.ext
+    end
+    if opts.dump_mode == "ab" or utils.file_info(file.name) then
+        file.name = file.path .. "/" .. file.title .. -file.inc .. file.ext
     end
     -- check if file exists
     while utils.file_info(file.name) do
@@ -298,8 +299,12 @@ local function cache_write()
         else -- continuous dumping
             mp.commandv("async", "osd-msg", "dump-cache", "0", "no", file.name)
         end
+        -- check if file is written
         if utils.file_info(file.name) then
             print("Cache dumped to " .. file.name)
+            if opts.output_label == "increment" then
+                file.inc = file.inc + 1
+            end
         end
     end
 end
