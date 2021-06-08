@@ -91,13 +91,16 @@ There are 3 other choices:
 
 ----
 
-The `force_extension` option allows you to force a preferred format and sidestep the automatic detection.  
+The `force_extension` option allows you to force a preferred format and sidestep the automatic detection.
+
 If using this option it is recommended that a highly flexible container is used (e.g. Matroska).  
 The format is specified as the extension including the dot (e.g. `force_extension=.mkv`).
 
 If this option is set, `script-message streamsave-extension revert` will run the automatic determination at runtime; running this command again will reset the extension to what's specified in `force_extension`.
 
 This option is disabled by default allowing the script to choose between MP4, WebM, and MKV depending on the input format.
+
+Likewise, the `force_title` option will set the title used for the filename (specified as e.g. `force_title=Example Title` without double quote marks in streamsave.conf). The `output_label` is still used here and file overwrites are prevented if desired. Changing the title to the `media-title` is still possible at runtime by using the `revert` argument, as in the `force_extension` example.
 
 ----
 

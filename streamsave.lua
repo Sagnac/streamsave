@@ -53,6 +53,11 @@ The force_extension option allows you to force a preferred format and sidestep t
 If using this option it is recommended that a highly flexible container is used (e.g. Matroska).
 The format is specified as the extension including the dot (e.g. force_extension=.mkv).
 
+Likewise, the force_title option will set the title used for the filename (specified as e.g.
+`force_title=Example Title` without double quote marks in streamsave.conf).
+The output_label is still used here and file overwrites are prevented if desired.
+Changing the title to the media-title is still possible at runtime by using the revert argument, as in the force_extension example.
+
 mpv's script-message command can be used to set the dump mode and override the output title or file extension by
 specifying streamsave-mode, streamsave-title, and streamsave-extension respectively.
 If you override the title or file extension, the revert argument can be used to set it back to the default auto-determined value.
