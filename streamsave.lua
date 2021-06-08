@@ -76,6 +76,7 @@ local opts = {
     dump_mode = "ab",               -- <ab|current|continuous>
     output_label = "increment",     -- <increment|range|timestamp|overwrite>
     force_extension = "no",         -- <no|.ext> extension will be .ext if set
+    force_title = "no",             -- <no|title> custom title used for the filename
 }
 
 -- for internal use
@@ -98,6 +99,7 @@ local loop = {
     aligned,         -- are the loop points aligned to keyframes?
 }
 
+local title_change
 local container
 
 local function validate_opts()
@@ -121,6 +123,12 @@ end
 local function update_opts(changed)
     -- expand mpv meta paths (e.g. ~~/directory)
     file.path = mp.command_native({"expand-path", opts.save_directory})
+    if opts.force_title ~= "no" then
+        file.title = opts.force_title
+        file.inc = 1
+    elseif changed["force_title"] then
+        title_change(_, mp.get_property("media-title"))
+    end
     if opts.force_extension ~= "no" then
         file.ext = opts.force_extension
     elseif changed["force_extension"] then
@@ -162,7 +170,9 @@ local function mode_switch(value)
 end
 
 -- Replacement of reserved file name characters on Windows
-local function title_change(name, media_title)
+function title_change(name, media_title)
+    if opts.force_title ~= "no" and not file.oldtitle then
+        return end
     if media_title then
         file.title = media_title:gsub("[\\/:*?\"<>|]", ".")
         file.inc = 1
@@ -223,7 +233,11 @@ end
 local function title_override(title)
     title = title or file.title
     file.oldtitle = file.oldtitle or file.title
-    if title == "revert" then
+    if title == "revert" and file.title == opts.force_title then
+        title_change(_, mp.get_property("media-title"))
+    elseif title == "revert" and opts.force_title ~= "no" then
+        file.title = opts.force_title
+    elseif title == "revert" then
         file.title = file.oldtitle
     else
         file.title = title
