@@ -169,7 +169,7 @@ local function update_opts(changed)
 end
 
 options.read_options(opts, "streamsave", update_opts)
-update_opts({})
+update_opts{}
 
 -- dump mode switching
 local function mode_switch(value)
