@@ -82,6 +82,7 @@ local opts = {
     output_label = "increment",     -- <increment|range|timestamp|overwrite>
     force_extension = "no",         -- <no|.ext> extension will be .ext if set
     force_title = "no",             -- <no|title> custom title used for the filename
+    range_marks = false,            -- <yes|no> set chapters at A-B loop points?
 }
 
 -- for internal use
@@ -106,6 +107,9 @@ local loop = {
 
 local title_change
 local container
+local chapter_list = {} -- initial chapter list
+local ab_chapters = {}  -- A-B loop point chapters
+local chapter_points
 
 local function validate_opts()
     if opts.output_label ~= "increment" and
@@ -138,6 +142,14 @@ local function update_opts(changed)
         file.ext = opts.force_extension
     elseif changed["force_extension"] then
         container()
+    end
+    if changed["range_marks"] then
+        if opts.range_marks then
+            chapter_points()
+        else
+            ab_chapters = {}
+            mp.set_property_native("chapter-list", chapter_list)
+        end
     end
     validate_opts()
 end
@@ -349,6 +361,60 @@ local function align_cache()
         mp.osd_message("A-B loop: " .. loop.range)
     end
 end
+
+-- creates chapters at A-B loop points
+function chapter_points()
+    if not opts.range_marks then
+        return end
+    local current_chapters = mp.get_property_native("chapter-list")
+    -- make sure master list is up to date
+    if current_chapters[1] and
+       not string.match(current_chapters[1]["title"], "^[AB] loop point$")
+    then
+        chapter_list = current_chapters
+    -- if a script has added chapters after A-B points are set then
+    -- add those to the original chapter list
+    elseif #current_chapters > #ab_chapters then
+        for i = #ab_chapters + 1, #current_chapters do
+            table.insert(chapter_list, current_chapters[i])
+        end
+    end
+    ab_chapters = {}
+    -- restore original chapter list if A-B points are cleared
+    -- otherwise set chapters to A-B points
+    if loop_range() == "no - no" then
+        mp.set_property_native("chapter-list", chapter_list)
+    else
+        range_flip()
+        if loop.a then
+            ab_chapters[1] = {
+                title = "A loop point",
+                time = loop.a
+            }
+        end
+        if loop.b and not loop.a then
+            ab_chapters[1] = {
+                title = "B loop point",
+                time = loop.b
+            }
+        elseif loop.b then
+            ab_chapters[2] = {
+                title = "B loop point",
+                time = loop.b
+            }
+        end
+        mp.set_property_native("chapter-list", ab_chapters)
+    end
+end
+
+--[[ Loading chapters can be slow especially if they're passed from
+an external file, so make sure existing chapters are not overwritten
+by observing A-B loop changes only after the file is loaded. ]]
+local function on_file_load()
+    mp.observe_property("ab-loop-a", "native", chapter_points)
+    mp.observe_property("ab-loop-b", "native", chapter_points)
+end
+mp.register_event("file-loaded", on_file_load)
 
 -- stops writing the file
 local function stop()
