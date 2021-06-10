@@ -130,7 +130,7 @@ local function update_opts(changed)
     file.path = mp.command_native({"expand-path", opts.save_directory})
     if opts.force_title ~= "no" then
         file.title = opts.force_title
-        file.inc = 1
+        file.inc = file.inc or 1
     elseif changed["force_title"] then
         title_change(_, mp.get_property("media-title"))
     end
