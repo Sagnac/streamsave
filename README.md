@@ -77,7 +77,8 @@ If you want continuous dumping with a different starting point use the default A
 
 ----
 
-The `output_label` option allows you to choose how the output filename is tagged.  
+The `output_label` option allows you to choose how the output filename is tagged.
+
 The default uses iterated step increments for every file output; i.e. file-1.mkv, file-2.mkv, etc.  
 Outside of A-B clip mode the first file will not be tagged, only subsequent files with the same title.
 
@@ -100,7 +101,21 @@ If this option is set, `script-message streamsave-extension revert` will run the
 
 This option is disabled by default allowing the script to choose between MP4, WebM, and MKV depending on the input format.
 
-Likewise, the `force_title` option will set the title used for the filename (specified as e.g. `force_title=Example Title` without double quote marks in streamsave.conf). The `output_label` is still used here and file overwrites are prevented if desired. Changing the title to the `media-title` is still possible at runtime by using the `revert` argument, as in the `force_extension` example.
+----
+
+The `force_title` option will set the title used for the filename.
+
+This is specified without double quote marks in streamsave.conf, e.g. `force_title=Example Title`.
+
+The `output_label` is still used here and file overwrites are prevented if desired. Changing the filename title to the `media-title` is still possible at runtime by using the `revert` argument, as in the `force_extension` example.
+
+----
+
+The `range_marks` option allows the script to set temporary chapters at A-B loop points.
+
+If chapters already exist they are stored and cleared whenever any A-B points are set. Once the A-B points are cleared the original chapters are restored. Any chapters added after A-B mode is entered are added to the initial chapter list.
+
+This option is disabled by default. Set `range_marks=yes` in streamsave.conf in order to enable it.
 
 ----
 
@@ -127,6 +142,6 @@ Note you may still experience issues if the framerate is not known and a high fp
 
 **If you're using an older version of mpv and are receiving incompatible codec_tag errors with live streams (particularly HLS) use [v0.13.2](https://raw.githubusercontent.com/Sagnac/streamsave/b48726e65cd42f980e42fa04b69441ca446b1e43/streamsave.lua "v0.13.2") or force the .ts extension.**
 
-`[1]` Will be fixed with [mpv-player/mpv#8877](https://github.com/mpv-player/mpv/pull/8877 "mpv pull request #8877")
+`[1]` Fixed with [mpv-player/mpv#8877](https://github.com/mpv-player/mpv/pull/8877 "mpv pull request #8877")
 
 `[2]` Fixed in [mpv-player/mpv@643c699](https://github.com/mpv-player/mpv/commit/643c699f2684987db6073ebe8a6ea76e56c87055 "mpv commit 643c699")

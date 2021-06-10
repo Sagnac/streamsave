@@ -17,12 +17,14 @@ Essentially a wrapper around mpv's cache dumping commands, the script adds the f
 
 By default the A-B loop points (set using the `l` key in mpv) determine the portion of the cache written to disk.
 
-It is advisable that you set --demuxer-max-bytes and --demuxer-max-back-bytes to larger values (e.g. at least 1GiB) in order to have a larger cache.
+It is advisable that you set --demuxer-max-bytes and --demuxer-max-back-bytes to larger values
+(e.g. at least 1GiB) in order to have a larger cache.
 If you want to use with local files set cache=yes in mpv.conf
 
 Options are specified in ~~/script-opts/streamsave.conf
 
-Runtime changes to all user options are supported via the `script-opts` property by using mpv's `set` or `change-list` input commands and the `streamsave-` prefix.
+Runtime changes to all user options are supported via the `script-opts` property by using mpv's `set` or
+`change-list` input commands and the `streamsave-` prefix.
 
 save_directory sets the output file directory. Don't use quote marks or a trailing slash when specifying paths here.
 Example: save_directory=C:\User Directory
@@ -32,10 +34,14 @@ By default files are dumped in the current directory.
 dump_mode=continuous will use dump-cache, setting the initial timestamp to 0 and leaving the end timestamp unset.
 
 Use this mode if you want to dump the entire cache.
-This process will continue as packets are read and until the streams change, the player is closed, or the user presses the stop keybind.
+This process will continue as packets are read and until the streams change, the player is closed,
+or the user presses the stop keybind.
 
-Under this mode pressing the cache-write keybind again will stop writing the first file and initiate another file starting at 0 and continuing as the cache increases.
-If you want continuous dumping with a different starting point use the default A-B mode instead and only set the first loop point then press the cache-write keybind.
+Under this mode pressing the cache-write keybind again will stop writing the first file and
+initiate another file starting at 0 and continuing as the cache increases.
+
+If you want continuous dumping with a different starting point use the default A-B mode instead
+and only set the first loop point then press the cache-write keybind.
 
 dump_mode=current will dump the cache from timestamp 0 to the current playback position in the file.
 
@@ -53,14 +59,22 @@ The force_extension option allows you to force a preferred format and sidestep t
 If using this option it is recommended that a highly flexible container is used (e.g. Matroska).
 The format is specified as the extension including the dot (e.g. force_extension=.mkv).
 
-Likewise, the force_title option will set the title used for the filename (specified as e.g.
-`force_title=Example Title` without double quote marks in streamsave.conf).
+The force_title option will set the title used for the filename.
+This is specified without double quote marks in streamsave.conf, e.g. force_title=Example Title
 The output_label is still used here and file overwrites are prevented if desired.
-Changing the title to the media-title is still possible at runtime by using the revert argument, as in the force_extension example.
+Changing the filename title to the media-title is still possible at runtime by using the revert argument,
+as in the force_extension example.
+
+The range_marks option allows the script to set temporary chapters at A-B loop points.
+If chapters already exist they are stored and cleared whenever any A-B points are set.
+Once the A-B points are cleared the original chapters are restored.
+Any chapters added after A-B mode is entered are added to the initial chapter list.
+This option is disabled by default. Set range_marks=yes in streamsave.conf in order to enable it.
 
 mpv's script-message command can be used to set the dump mode and override the output title or file extension by
 specifying streamsave-mode, streamsave-title, and streamsave-extension respectively.
-If you override the title or file extension, the revert argument can be used to set it back to the default auto-determined value.
+If you override the title or file extension, the revert argument can be used
+to set it back to the default auto-determined value.
 
 Examples:
 script-message streamsave-mode continuous
