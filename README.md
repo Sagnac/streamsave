@@ -103,7 +103,7 @@ This option is disabled by default allowing the script to choose between MP4, We
 
 ----
 
-The `force_title` option will set the title used for the filename.
+The `force_title` option will set the title used for the filename. By default the script uses the `media-title`.
 
 This is specified without double quote marks in streamsave.conf, e.g. `force_title=Example Title`.
 
@@ -114,6 +114,8 @@ The `output_label` is still used here and file overwrites are prevented if desir
 The `range_marks` option allows the script to set temporary chapters at A-B loop points.
 
 If chapters already exist they are stored and cleared whenever any A-B points are set. Once the A-B points are cleared the original chapters are restored. Any chapters added after A-B mode is entered are added to the initial chapter list.
+
+Make sure your build of mpv is up to date or at least includes commit [mpv-player/mpv@`96b246d`](https://github.com/mpv-player/mpv/commit/96b246d9283da99b82800bbd576037d115e3c6e9 "mpv commit 96b246d") so that the seekbar chapter indicators/markers update properly on the OSC.
 
 This option is disabled by default. Set `range_marks=yes` in streamsave.conf in order to enable it.
 
@@ -144,4 +146,4 @@ Note you may still experience issues if the framerate is not known and a high fp
 
 `[1]` Fixed with [mpv-player/mpv#8877](https://github.com/mpv-player/mpv/pull/8877 "mpv pull request #8877")
 
-`[2]` Fixed in [mpv-player/mpv@643c699](https://github.com/mpv-player/mpv/commit/643c699f2684987db6073ebe8a6ea76e56c87055 "mpv commit 643c699")
+`[2]` Fixed in [mpv-player/mpv@`643c699`](https://github.com/mpv-player/mpv/commit/643c699f2684987db6073ebe8a6ea76e56c87055 "mpv commit 643c699")

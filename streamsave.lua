@@ -59,7 +59,7 @@ The force_extension option allows you to force a preferred format and sidestep t
 If using this option it is recommended that a highly flexible container is used (e.g. Matroska).
 The format is specified as the extension including the dot (e.g. force_extension=.mkv).
 
-The force_title option will set the title used for the filename.
+The force_title option will set the title used for the filename. By default the script uses the media-title.
 This is specified without double quote marks in streamsave.conf, e.g. force_title=Example Title
 The output_label is still used here and file overwrites are prevented if desired.
 Changing the filename title to the media-title is still possible at runtime by using the revert argument,
