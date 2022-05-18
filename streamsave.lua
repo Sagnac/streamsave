@@ -295,12 +295,7 @@ local function loop_range()
 end
 
 local function increment_filename()
-    if opts.dump_mode ~= "ab" then
-        file.name = file.path .. "/" .. file.title .. file.ext
-    end
-    if opts.dump_mode == "ab" or utils.file_info(file.name) then
-        file.name = file.path .. "/" .. file.title .. -file.inc .. file.ext
-    end
+    file.name = file.path .. "/" .. file.title .. -file.inc .. file.ext
     -- check if file exists
     while utils.file_info(file.name) do
         file.inc = file.inc + 1
