@@ -339,33 +339,33 @@ local function range_stamp()
 end
 
 local function cache_write()
-    if file.title and file.ext then
-        range_flip()
-        -- evaluate tagging conditions and set file name
+    if not (file.title and file.ext) then
+        return end
+    range_flip()
+    -- evaluate tagging conditions and set file name
+    if opts.output_label == "increment" then
+        increment_filename()
+    elseif opts.output_label == "range" then
+        range_stamp()
+    elseif opts.output_label == "timestamp" then
+        file.name = file.path .. "/" .. file.title .. -os.time() .. file.ext
+    elseif opts.output_label == "overwrite" then
+        file.name = file.path .. "/" .. file.title .. file.ext
+    end
+    -- dump cache according to mode
+    if opts.dump_mode == "ab" then
+        mp.commandv("async", "osd-msg", "ab-loop-dump-cache", file.name)
+    elseif opts.dump_mode == "current" then
+        local file_pos = mp.get_property_number("playback-time")
+        mp.commandv("async", "osd-msg", "dump-cache", "0", file_pos, file.name)
+    else -- continuous dumping
+        mp.commandv("async", "osd-msg", "dump-cache", "0", "no", file.name)
+    end
+    -- check if file is written
+    if utils.file_info(file.name) then
+        print("Cache dumped to " .. file.name)
         if opts.output_label == "increment" then
-            increment_filename()
-        elseif opts.output_label == "range" then
-            range_stamp()
-        elseif opts.output_label == "timestamp" then
-            file.name = file.path .. "/" .. file.title .. -os.time() .. file.ext
-        elseif opts.output_label == "overwrite" then
-            file.name = file.path .. "/" .. file.title .. file.ext
-        end
-        -- dump cache according to mode
-        if opts.dump_mode == "ab" then
-            mp.commandv("async", "osd-msg", "ab-loop-dump-cache", file.name)
-        elseif opts.dump_mode == "current" then
-            local file_pos = mp.get_property_number("playback-time")
-            mp.commandv("async", "osd-msg", "dump-cache", "0", file_pos, file.name)
-        else -- continuous dumping
-            mp.commandv("async", "osd-msg", "dump-cache", "0", "no", file.name)
-        end
-        -- check if file is written
-        if utils.file_info(file.name) then
-            print("Cache dumped to " .. file.name)
-            if opts.output_label == "increment" then
-                file.inc = file.inc + 1
-            end
+            file.inc = file.inc + 1
         end
     end
 end
