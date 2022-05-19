@@ -108,6 +108,7 @@ local file = {
     ext,             -- file extension
     oldtitle,        -- initialized if title is overridden, allows revert
     oldext,          -- initialized if format is overridden, allows revert
+    oldpath,         -- initialized if directory is overriden, allows revert
 }
 
 local loop = {
@@ -277,6 +278,26 @@ local function title_override(title)
     mp.osd_message("streamsave: title changed to " .. file.title)
 end
 
+local function change_path(value)
+    value = value or opts.save_directory
+    file.oldpath = file.oldpath or opts.save_directory
+    if value == "revert" then
+        opts.save_directory = file.oldpath
+    else
+        opts.save_directory = value
+    end
+    file.path = mp.command_native({"expand-path", opts.save_directory})
+    print("Output directory changed to " .. opts.save_directory)
+    mp.osd_message("streamsave: directory changed to " .. opts.save_directory)
+end
+
+local function change_label(value)
+    opts.output_label = value or opts.output_label
+    validate_opts()
+    print("File label changed to " .. opts.output_label)
+    mp.osd_message("streamsave: label changed to " .. opts.output_label)
+end
+
 local function range_flip()
     loop.a = mp.get_property_number("ab-loop-a")
     loop.b = mp.get_property_number("ab-loop-b")
@@ -433,6 +454,8 @@ end
 mp.register_script_message("streamsave-mode", mode_switch)
 mp.register_script_message("streamsave-title", title_override)
 mp.register_script_message("streamsave-extension", format_override)
+mp.register_script_message("streamsave-path", change_path)
+mp.register_script_message("streamsave-label", change_label)
 
 mp.add_key_binding("Alt+z", "mode-switch", function() mode_switch("cycle") end)
 mp.add_key_binding("Ctrl+x", "stop-cache-write", stop)
