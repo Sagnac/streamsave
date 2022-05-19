@@ -101,6 +101,8 @@ local opts = {
     force_extension = "no",         -- <no|.ext> extension will be .ext if set
     force_title = "no",             -- <no|title> custom title used for the filename
     range_marks = false,            -- <yes|no> set chapters at A-B loop points?
+    autostart = false,              -- <yes|no> automatically dump cache at start?
+    autoend = "no",                 -- <no|HH:MM:SS> cache time to stop at
 }
 
 -- for internal use
@@ -113,6 +115,9 @@ local file = {
     oldtitle,        -- initialized if title is overridden, allows revert
     oldext,          -- initialized if format is overridden, allows revert
     oldpath,         -- initialized if directory is overriden, allows revert
+    cache_dumped,    -- whether the current cache has been written
+    cache_observed,  -- whether the cache time is being observed
+    endseconds,      -- user specified autoend cache time in seconds
 }
 
 local loop = {
@@ -129,6 +134,8 @@ local container
 local chapter_list = {} -- initial chapter list
 local ab_chapters = {}  -- A-B loop point chapters
 local chapter_points
+local convert_time
+local observe_cache
 
 local function validate_opts()
     if opts.output_label ~= "increment" and
@@ -170,11 +177,23 @@ local function update_opts(changed)
             mp.set_property_native("chapter-list", chapter_list)
         end
     end
+    if changed["autostart"] or changed["autoend"] then
+        observe_cache()
+    end
     validate_opts()
 end
 
 options.read_options(opts, "streamsave", update_opts)
 update_opts{}
+
+function convert_time()
+    local H, M, S = opts.autoend:match("(%d+):(%d+):(%d+)")
+    if not (H and M and S) then
+        file.endseconds = nil
+        return
+    end
+    file.endseconds = H*3600 + M*60 + S
+end
 
 -- dump mode switching
 local function mode_switch(value)
@@ -219,6 +238,7 @@ mp.observe_property("media-title", "string", title_change)
 
 -- Determine container for standard formats
 function container()
+    file.cache_dumped = false
     if opts.force_extension ~= "no" and not file.oldext then
         return end
     local file_format = mp.get_property("file-format")
@@ -302,6 +322,18 @@ local function change_label(value)
     mp.osd_message("streamsave: label changed to " .. opts.output_label)
 end
 
+local function change_end(value)
+    opts.autoend = value or opts.autoend
+    observe_cache()
+    if file.endseconds or opts.autoend == "no" then
+        print("Autoend set to " .. opts.autoend)
+        mp.osd_message("streamsave: autoend set to " .. opts.autoend)
+    else
+        print("Invalid input '" .. opts.autoend .. "'. Use HH:MM:SS format.")
+        mp.osd_message("streamsave: invalid input; use HH:MM:SS format")
+    end
+end
+
 local function range_flip()
     loop.a = mp.get_property_number("ab-loop-a")
     loop.b = mp.get_property_number("ab-loop-b")
@@ -371,6 +403,7 @@ local function cache_write()
         if opts.output_label == "increment" then
             file.inc = file.inc + 1
         end
+        file.cache_dumped = true
     end
 end
 
@@ -455,11 +488,41 @@ local function stop()
     mp.commandv("async", "osd-msg", "dump-cache", "0", "no", "")
 end
 
+local function automatic(_, value)
+    if not value then
+        return end
+    if opts.autostart and not file.cache_dumped then
+        opts.dump_mode = "continuous"
+        cache_write()
+    end
+    if not file.endseconds then
+        mp.unobserve_property(automatic)
+        file.cache_observed = false
+    end
+    if file.endseconds and file.cache_dumped and value >= file.endseconds then
+        stop()
+        mp.unobserve_property(automatic)
+        file.cache_observed = false
+        file.cache_dumped = false
+    end
+end
+
+-- cache duration observation switch for runtime changes
+function observe_cache()
+    convert_time()
+    if not file.cache_observed and (opts.autostart or file.endseconds) then
+        mp.observe_property("demuxer-cache-time", "number", automatic)
+        file.cache_observed = true
+    end
+end
+observe_cache()
+
 mp.register_script_message("streamsave-mode", mode_switch)
 mp.register_script_message("streamsave-title", title_override)
 mp.register_script_message("streamsave-extension", format_override)
 mp.register_script_message("streamsave-path", change_path)
 mp.register_script_message("streamsave-label", change_label)
+mp.register_script_message("streamsave-autoend", change_end)
 
 mp.add_key_binding("Alt+z", "mode-switch", function() mode_switch("cycle") end)
 mp.add_key_binding("Ctrl+x", "stop-cache-write", stop)
