@@ -109,6 +109,8 @@ local opts = {
     range_marks = false,            -- <yes|no> set chapters at A-B loop points?
     autostart = false,              -- <yes|no> automatically dump cache at start?
     autoend = "no",                 -- <no|HH:MM:SS> cache time to stop at
+    hostchange = false,             -- <yes|no> use if the host changes mid stream
+    quit = "no",                    -- <no|HH:MM:SS> quits player at specified time
 }
 
 -- for internal use
@@ -124,6 +126,8 @@ local file = {
     cache_dumped,    -- whether the current cache has been written
     cache_observed,  -- whether the cache time is being observed
     endseconds,      -- user specified autoend cache time in seconds
+    prior_cache = 0, -- previous cache time
+    quit_timer,      -- used as a replacement for autoend if hostchange is used
 }
 
 local loop = {
@@ -142,6 +146,7 @@ local ab_chapters = {}  -- A-B loop point chapters
 local chapter_points
 local convert_time
 local observe_cache
+local autoquit
 
 local function validate_opts()
     if opts.output_label ~= "increment" and
@@ -183,7 +188,7 @@ local function update_opts(changed)
             mp.set_property_native("chapter-list", chapter_list)
         end
     end
-    if changed["autostart"] or changed["autoend"] then
+    if changed["autostart"] or changed["autoend"] or changed["hostchange"] then
         observe_cache()
     end
     validate_opts()
@@ -192,13 +197,22 @@ end
 options.read_options(opts, "streamsave", update_opts)
 update_opts{}
 
-function convert_time()
-    local H, M, S = opts.autoend:match("(%d+):(%d+):(%d+)")
+function convert_time(value, quit)
+    local H, M, S = value:match("(%d+):(%d+):(%d+)")
     if not (H and M and S) then
-        file.endseconds = nil
+        if quit then
+            opts.quit = "no"
+        else
+            file.endseconds = nil
+        end
         return
     end
-    file.endseconds = H*3600 + M*60 + S
+    local compute = H*3600 + M*60 + S
+    if quit then
+        return compute
+    else
+        file.endseconds = compute
+    end
 end
 
 -- dump mode switching
@@ -245,6 +259,7 @@ mp.observe_property("media-title", "string", title_change)
 -- Determine container for standard formats
 function container()
     file.cache_dumped = false
+    file.prior_cache = 0
     if opts.force_extension ~= "no" and not file.oldext then
         return end
     local file_format = mp.get_property("file-format")
@@ -338,6 +353,30 @@ local function change_end(value)
         print("Invalid input '" .. opts.autoend .. "'. Use HH:MM:SS format.")
         mp.osd_message("streamsave: invalid input; use HH:MM:SS format")
     end
+end
+
+local function change_hostchange(value)
+    if not value or value == "no" then
+        opts.hostchange = false
+        print("Hostchange disabled")
+        mp.osd_message("streamsave: hostchange disabled")
+    else
+        opts.hostchange = true
+        opts.autostart = true
+        observe_cache()
+        print("Hostchange enabled")
+        mp.osd_message("streamsave: hostchange enabled")
+    end
+end
+
+local function change_quit(value)
+    opts.quit = value or opts.quit
+    if file.quit_timer and file.quit_timer:is_enabled() then
+        file.quit_timer:kill()
+    end
+    autoquit(convert_time(opts.quit, true))
+    print("Quit set to " .. opts.quit)
+    mp.osd_message("streamsave: quit set to " .. opts.quit)
 end
 
 local function range_flip()
@@ -495,13 +534,20 @@ local function stop()
 end
 
 local function automatic(_, value)
-    if not value then
-        return end
+    if opts.hostchange and file.prior_cache ~= 0
+       and (not value or math.abs(value - file.prior_cache) > 300)
+    then
+        -- reload stream
+        mp.command("playlist-play-index current")
+        return
+    elseif not value then
+        return
+    end
     if opts.autostart and not file.cache_dumped then
         opts.dump_mode = "continuous"
         cache_write()
     end
-    if not file.endseconds then
+    if not file.endseconds and not opts.hostchange then
         mp.unobserve_property(automatic)
         file.cache_observed = false
     end
@@ -511,11 +557,12 @@ local function automatic(_, value)
         file.cache_observed = false
         file.cache_dumped = false
     end
+    file.prior_cache = value
 end
 
 -- cache duration observation switch for runtime changes
 function observe_cache()
-    convert_time()
+    convert_time(opts.autoend)
     if not file.cache_observed and (opts.autostart or file.endseconds) then
         mp.observe_property("demuxer-cache-time", "number", automatic)
         file.cache_observed = true
@@ -523,12 +570,24 @@ function observe_cache()
 end
 observe_cache()
 
+function autoquit(value)
+    if opts.quit == "no" then
+        return
+    end
+    file.quit_timer = mp.add_timeout(value, function() mp.command("quit")
+                                     print("Quit after " .. opts.quit)
+                                     end)
+end
+autoquit(convert_time(opts.quit, true))
+
 mp.register_script_message("streamsave-mode", mode_switch)
 mp.register_script_message("streamsave-title", title_override)
 mp.register_script_message("streamsave-extension", format_override)
 mp.register_script_message("streamsave-path", change_path)
 mp.register_script_message("streamsave-label", change_label)
 mp.register_script_message("streamsave-autoend", change_end)
+mp.register_script_message("streamsave-hostchange", change_hostchange)
+mp.register_script_message("streamsave-quit", change_quit)
 
 mp.add_key_binding("Alt+z", "mode-switch", function() mode_switch("cycle") end)
 mp.add_key_binding("Ctrl+x", "stop-cache-write", stop)
