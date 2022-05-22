@@ -14,6 +14,7 @@ Essentially a wrapper around mpv's cache dumping commands, the script adds the f
 * Switch between 3 different dump modes (clip mode, full/continuous dump, write from beginning to current position)
 * Prevention of file overwrites
 * Acceptance of inverted loop ranges, allowing the end point to be set first
+* Dynamic chapter indicators on the OSC displaying the clipping interval
 
 By default the A-B loop points (set using the `l` key in mpv) determine the portion of the cache written to disk.
 
@@ -47,7 +48,6 @@ dump_mode=current will dump the cache from timestamp 0 to the current playback p
 
 The output_label option allows you to choose how the output filename is tagged.
 The default uses iterated step increments for every file output; i.e. file-1.mkv, file-2.mkv, etc.
-Outside of A-B clip mode the first file will not be tagged, only subsequent files with the same title.
 
 There are 3 other choices:
 output_label=timestamp will append Unix timestamps to the file name.
@@ -58,6 +58,8 @@ output_label=overwrite will not tag the file and will overwrite any existing fil
 The force_extension option allows you to force a preferred format and sidestep the automatic detection.
 If using this option it is recommended that a highly flexible container is used (e.g. Matroska).
 The format is specified as the extension including the dot (e.g. force_extension=.mkv).
+If this option is set, `script-message streamsave-extension revert` will run the automatic determination at runtime;
+running this command again will reset the extension to what's specified in force_extension.
 
 The force_title option will set the title used for the filename. By default the script uses the media-title.
 This is specified without double quote marks in streamsave.conf, e.g. force_title=Example Title
@@ -71,16 +73,18 @@ Once the A-B points are cleared the original chapters are restored.
 Any chapters added after A-B mode is entered are added to the initial chapter list.
 This option is disabled by default. Set range_marks=yes in streamsave.conf in order to enable it.
 
-mpv's script-message command can be used to set the dump mode and override the output title or file extension by
-specifying streamsave-mode, streamsave-title, and streamsave-extension respectively.
-If you override the title or file extension, the revert argument can be used
-to set it back to the default auto-determined value.
+mpv's script-message command can be used at runtime to set the dump mode, override the output title
+or file extension, change the save directory, or switch the output label.
+If you override the title, the file extension, or the directory, the revert argument can be used
+to set it back to the default value.
 
 Examples:
 script-message streamsave-mode continuous
 script-message streamsave-title "Example Title"
 script-message streamsave-extension .mkv
 script-message streamsave-extension revert
+script-message streamsave-path ~/streams
+script-message streamsave-label range
 
  ]]
 

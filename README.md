@@ -11,7 +11,8 @@ Essentially a wrapper around mpv's cache dumping commands, the script adds the f
   * full/continuous dump;
   * write from beginning to current position;
 * Prevention of file overwrites;
-* Acceptance of inverted loop ranges, allowing the end point to be set first.
+* Acceptance of inverted loop ranges, allowing the end point to be set first;
+* Dynamic chapter indicators on the OSC displaying the clipping interval.
 
 By default the A-B loop points (set using the `l` key in mpv) determine the portion of the cache written to disk.
 
@@ -35,8 +36,8 @@ If you want to use with local files set `cache=yes` in mpv.conf
 
 ----
 
-mpv's `script-message` command can be used to set the dump mode and override the output title or file extension by specifying `streamsave-mode`, `streamsave-title`, and `streamsave-extension` respectively.
-If you override the title or file extension the `revert` argument can be used to set it back to the default auto-determined value.
+mpv's `script-message` command can be used at runtime to set the dump mode, override the output title or file extension, change the save directory, or switch the output label.
+If you override the title, the file extension, or the directory, the `revert` argument can be used to set it back to the default value.
 
 Examples:
 ```
@@ -44,6 +45,8 @@ script-message streamsave-mode continuous
 script-message streamsave-title "Example Title"
 script-message streamsave-extension .mkv
 script-message streamsave-extension revert
+script-message streamsave-path ~/streams
+script-message streamsave-label range
 ```
 
 ----
@@ -71,7 +74,7 @@ This process will continue as packets are read and until the streams change, the
 
 Under this mode pressing the cache-write keybind again will stop writing the first file and initiate another file starting at 0 and continuing as the cache increases.
 
-If you want continuous dumping with a different starting point use the default A-B mode instead and only set the first loop point then press the cache-write keybind.  
+If you want continuous dumping with a different starting point use the default A-B mode instead and only set the first loop point then press the cache-write keybind.
 
 `dump_mode=current` will dump the cache from timestamp 0 to the current playback position in the file.
 
@@ -79,8 +82,7 @@ If you want continuous dumping with a different starting point use the default A
 
 The `output_label` option allows you to choose how the output filename is tagged.
 
-The default uses iterated step increments for every file output; i.e. file-1.mkv, file-2.mkv, etc.  
-Outside of A-B clip mode the first file will not be tagged, only subsequent files with the same title.
+The default uses iterated step increments for every file output; i.e. file-1.mkv, file-2.mkv, etc.
 
 There are 3 other choices:
 
@@ -121,7 +123,7 @@ This option is disabled by default. Set `range_marks=yes` in streamsave.conf in 
 
 ----
 
-## Known issues
+## Previously known issues
 
 Known issues and bugs with the `dump-cache` command:  
 * Won't work with some high FPS streams (too many queued packets error) `[1]`  
