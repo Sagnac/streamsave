@@ -113,6 +113,14 @@ The `output_label` is still used here and file overwrites are prevented if desir
 
 ----
 
+The `autostart` and `autoend` options are used for automated stream capturing.
+
+Set `autostart=yes` if you want the script to trigger cache writing immediately on stream load.
+
+Set `autoend` to a time format of the form `HH:MM:SS` (e.g. `autoend=01:20:08`) if you want the file writing to stop at that time. The `autoend` feature accepts runtime `script-message` commands under the `streamsave-autoend` name.
+
+----
+
 The `range_marks` option allows the script to set temporary chapters at A-B loop points.
 
 If chapters already exist they are stored and cleared whenever any A-B points are set. Once the A-B points are cleared the original chapters are restored. Any chapters added after A-B mode is entered are added to the initial chapter list.

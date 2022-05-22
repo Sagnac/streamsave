@@ -15,6 +15,7 @@ Essentially a wrapper around mpv's cache dumping commands, the script adds the f
 * Prevention of file overwrites
 * Acceptance of inverted loop ranges, allowing the end point to be set first
 * Dynamic chapter indicators on the OSC displaying the clipping interval
+* Automated stream saving
 
 By default the A-B loop points (set using the `l` key in mpv) determine the portion of the cache written to disk.
 
@@ -72,6 +73,11 @@ If chapters already exist they are stored and cleared whenever any A-B points ar
 Once the A-B points are cleared the original chapters are restored.
 Any chapters added after A-B mode is entered are added to the initial chapter list.
 This option is disabled by default. Set range_marks=yes in streamsave.conf in order to enable it.
+
+The autostart and autoend options are used for automated stream capturing.
+Set autostart=yes if you want the script to trigger cache writing immediately on stream load.
+Set autoend to a time format of the form HH:MM:SS (e.g. autoend=01:20:08) if you want the file writing
+to stop at that time.
 
 mpv's script-message command can be used at runtime to set the dump mode, override the output title
 or file extension, change the save directory, or switch the output label.
