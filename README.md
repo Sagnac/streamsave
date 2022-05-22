@@ -12,7 +12,8 @@ Essentially a wrapper around mpv's cache dumping commands, the script adds the f
   * write from beginning to current position;
 * Prevention of file overwrites;
 * Acceptance of inverted loop ranges, allowing the end point to be set first;
-* Dynamic chapter indicators on the OSC displaying the clipping interval.
+* Dynamic chapter indicators on the OSC displaying the clipping interval;
+* Workaround for some DAI HLS streams served from .m3u8 where the host changes.
 
 By default the A-B loop points (set using the `l` key in mpv) determine the portion of the cache written to disk.
 
@@ -121,6 +122,14 @@ Set `autoend` to a time format of the form `HH:MM:SS` (e.g. `autoend=01:20:08`) 
 
 ----
 
+The `hostchange=yes` option enables an experimental workaround for DAI HLS .m3u8 streams in which the host changes. This option requires `autostart=yes`.
+
+See [`2fc7d6b`](https://github.com/Sagnac/streamsave/commit/2fc7d6bac1bb0cb0bb0574e77eb71f7771264c6b "streamsave commit 2fc7d6b") for more info.
+
+The `quit=HH:MM:SS` option will set a one shot timer from script load to the specified time at which point the player will exit. This serves as a replacement for `autoend` when using `hostchange`. Both of these features have associated `script-message` commands. Running `script-message streamsave-quit HH:MM:SS` at runtime will reset and restart the timer.
+
+----
+
 The `range_marks` option allows the script to set temporary chapters at A-B loop points.
 
 If chapters already exist they are stored and cleared whenever any A-B points are set. Once the A-B points are cleared the original chapters are restored. Any chapters added after A-B mode is entered are added to the initial chapter list.
@@ -129,31 +138,4 @@ Make sure your build of mpv is up to date or at least includes commit [mpv-playe
 
 This option is disabled by default. Set `range_marks=yes` in streamsave.conf in order to enable it.
 
-----
-
-## Previously known issues
-
-Known issues and bugs with the `dump-cache` command:  
-* Won't work with some high FPS streams (too many queued packets error) `[1]`  
-* Cache dumping FLAC streams is currently broken `[1]`  
-* Errors on some videos if you use the default youtube-dl format selection (e.g. dump-cache won't write vp9 + aac with mp4a tags to mkv) `[2]`
-
-To ensure compatibility it is recommended that you set `--ytdl-format` to:
-
-```
-bestvideo[ext=webm]+251/bestvideo[ext=mp4]+(258/256/140)/bestvideo[ext=webm]+(250/249)/best
-```
-
-If you want to avoid the queued packet error altogether limit the format to videos with a frame rate less than 60 fps:
-
-```
-bestvideo[ext=webm][fps<?60]+251/bestvideo[ext=mp4][fps<?60]+(258/256/140)/bestvideo[ext=webm][fps<?60]+(250/249)/best[fps<?60]/best
-```
-
-Note you may still experience issues if the framerate is not known and a high fps stream is selected.
-
-**If you're using an older version of mpv and are receiving incompatible codec_tag errors with live streams (particularly HLS) use [v0.13.2](https://raw.githubusercontent.com/Sagnac/streamsave/b48726e65cd42f980e42fa04b69441ca446b1e43/streamsave.lua "v0.13.2") or force the .ts extension.**
-
-`[1]` Fixed with [mpv-player/mpv#8877](https://github.com/mpv-player/mpv/pull/8877 "mpv pull request #8877")
-
-`[2]` Fixed in [mpv-player/mpv@`643c699`](https://github.com/mpv-player/mpv/commit/643c699f2684987db6073ebe8a6ea76e56c87055 "mpv commit 643c699")
+You can also enable this feature at runtime using `script-message streamsave-marks yes`.

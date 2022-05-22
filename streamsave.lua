@@ -16,6 +16,7 @@ Essentially a wrapper around mpv's cache dumping commands, the script adds the f
 * Acceptance of inverted loop ranges, allowing the end point to be set first
 * Dynamic chapter indicators on the OSC displaying the clipping interval
 * Automated stream saving
+* Workaround for some DAI HLS streams served from .m3u8 where the host changes
 
 By default the A-B loop points (set using the `l` key in mpv) determine the portion of the cache written to disk.
 
@@ -78,6 +79,11 @@ The autostart and autoend options are used for automated stream capturing.
 Set autostart=yes if you want the script to trigger cache writing immediately on stream load.
 Set autoend to a time format of the form HH:MM:SS (e.g. autoend=01:20:08) if you want the file writing
 to stop at that time.
+
+The hostchange=yes option enables an experimental workaround for DAI HLS .m3u8 streams in which the host changes. This option requires autostart=yes.
+The `quit=HH:MM:SS` option will set a one shot timer from script load to the specified time,
+at which point the player will exit. This serves as a replacement for autoend when using hostchange.
+Running `script-message streamsave-quit HH:MM:SS` at runtime will reset and restart the timer.
 
 mpv's script-message command can be used at runtime to set the dump mode, override the output title
 or file extension, change the save directory, or switch the output label.
