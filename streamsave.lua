@@ -139,12 +139,13 @@ local loop = {
     aligned,         -- are the loop points aligned to keyframes?
 }
 
+local convert_time
+local observe_cache
 local title_change
 local container
 local chapter_list = {} -- initial chapter list
 local ab_chapters = {}  -- A-B loop point chapters
 local chapter_points
-local observe_cache
 local autoquit
 
 local function validate_opts()
@@ -187,8 +188,14 @@ local function update_opts(changed)
             mp.set_property_native("chapter-list", chapter_list)
         end
     end
+    if changed["autoend"] then
+        file.endseconds = convert_time(opts.autoend)
+    end
     if changed["autostart"] or changed["autoend"] or changed["hostchange"] then
         observe_cache()
+    end
+    if changed["quit"] then
+        autoquit()
     end
     validate_opts()
 end
@@ -196,13 +203,16 @@ end
 options.read_options(opts, "streamsave", update_opts)
 update_opts{}
 
-local function convert_time(value)
+function convert_time(value)
     local i, j, H, M, S = value:find("(%d+):(%d+):(%d+)")
     if not i then
         return
     else
         return H*3600 + M*60 + S
     end
+end
+if opts.autoend ~= "no" then
+    file.endseconds = convert_time(opts.autoend)
 end
 
 -- dump mode switching
@@ -247,9 +257,11 @@ end
 mp.observe_property("media-title", "string", title_change)
 
 -- Determine container for standard formats
-function container()
-    file.cache_dumped = false
-    file.prior_cache = 0
+function container(n, p)
+    if p then
+        file.cache_dumped = false
+        observe_cache()
+    end
     if opts.force_extension ~= "no" and not file.oldext then
         return end
     local file_format = mp.get_property("file-format")
@@ -271,13 +283,6 @@ function container()
         file.oldext = nil
     end
 end
-
---[[ video and audio formats observed in order to handle track changes
-useful if e.g. --script-opts=ytdl_hook-all_formats=yes
-or script-opts=ytdl_hook-use_manifests=yes ]]
-mp.observe_property("file-format", "string", container)
-mp.observe_property("video-format", "string", container)
-mp.observe_property("audio-codec-name", "string", container)
 
 -- Allow user override of file extension
 local function format_override(ext)
@@ -333,8 +338,25 @@ local function change_label(value)
     mp.osd_message("streamsave: label changed to " .. opts.output_label)
 end
 
+local function change_autostart(value)
+    if not value or value == "no" then
+        opts.autostart = false
+        print("Autostart disabled")
+        mp.osd_message("streamsave: autostart disabled")
+    elseif value == "yes" then
+        opts.autostart = true
+        observe_cache()
+        print("Autostart enabled")
+        mp.osd_message("streamsave: autostart enabled")
+    else
+        print("Invalid input '" .. value .. "'. Use yes or no.")
+        mp.osd_message("streamsave: invalid input; use yes or no")
+    end
+end
+
 local function change_end(value)
     opts.autoend = value or opts.autoend
+    file.endseconds = convert_time(opts.autoend)
     observe_cache()
     if file.endseconds or opts.autoend == "no" then
         print("Autoend set to " .. opts.autoend)
@@ -350,12 +372,14 @@ local function change_hostchange(value)
         opts.hostchange = false
         print("Hostchange disabled")
         mp.osd_message("streamsave: hostchange disabled")
-    else
+    elseif value == "yes" then
         opts.hostchange = true
-        opts.autostart = true
         observe_cache()
         print("Hostchange enabled")
         mp.osd_message("streamsave: hostchange enabled")
+    else
+        print("Invalid input '" .. value .. "'. Use yes or no.")
+        mp.osd_message("streamsave: invalid input; use yes or no")
     end
 end
 
@@ -528,6 +552,7 @@ local function automatic(_, value)
        and (not value or math.abs(value - file.prior_cache) > 300)
     then
         -- reload stream
+        file.prior_cache = 0
         mp.command("playlist-play-index current")
         return
     elseif not value then
@@ -537,7 +562,7 @@ local function automatic(_, value)
         opts.dump_mode = "continuous"
         cache_write()
     end
-    if not file.endseconds and not opts.hostchange then
+    if file.cache_dumped and not file.endseconds and not opts.hostchange then
         mp.unobserve_property(automatic)
         file.cache_observed = false
     end
@@ -545,20 +570,21 @@ local function automatic(_, value)
         stop()
         mp.unobserve_property(automatic)
         file.cache_observed = false
-        file.cache_dumped = false
     end
     file.prior_cache = value
 end
 
 -- cache duration observation switch for runtime changes
 function observe_cache()
-    file.endseconds = convert_time(opts.autoend)
-    if not file.cache_observed and (opts.autostart or file.endseconds) then
+    local obs_xyz = opts.autostart or file.endseconds or opts.hostchange
+    if not file.cache_observed and obs_xyz then
         mp.observe_property("demuxer-cache-time", "number", automatic)
         file.cache_observed = true
+    elseif file.cache_observed and not obs_xyz then
+        mp.unobserve_property(automatic)
+        file.cache_observed = false
     end
 end
-observe_cache()
 
 function autoquit()
     if opts.quit == "no" then
@@ -577,11 +603,19 @@ function autoquit()
 end
 autoquit()
 
+--[[ video and audio formats observed in order to handle track changes
+useful if e.g. --script-opts=ytdl_hook-all_formats=yes
+or script-opts=ytdl_hook-use_manifests=yes ]]
+mp.observe_property("file-format", "string", container)
+mp.observe_property("video-format", "string", container)
+mp.observe_property("audio-codec-name", "string", container)
+
 mp.register_script_message("streamsave-mode", mode_switch)
 mp.register_script_message("streamsave-title", title_override)
 mp.register_script_message("streamsave-extension", format_override)
 mp.register_script_message("streamsave-path", change_path)
 mp.register_script_message("streamsave-label", change_label)
+mp.register_script_message("streamsave-autostart", change_autostart)
 mp.register_script_message("streamsave-autoend", change_end)
 mp.register_script_message("streamsave-hostchange", change_hostchange)
 mp.register_script_message("streamsave-quit", change_quit)
