@@ -144,7 +144,6 @@ local container
 local chapter_list = {} -- initial chapter list
 local ab_chapters = {}  -- A-B loop point chapters
 local chapter_points
-local convert_time
 local observe_cache
 local autoquit
 
@@ -197,21 +196,12 @@ end
 options.read_options(opts, "streamsave", update_opts)
 update_opts{}
 
-function convert_time(value, quit)
-    local H, M, S = value:match("(%d+):(%d+):(%d+)")
-    if not (H and M and S) then
-        if quit then
-            opts.quit = "no"
-        else
-            file.endseconds = nil
-        end
+local function convert_time(value)
+    local i, j, H, M, S = value:find("(%d+):(%d+):(%d+)")
+    if not i then
         return
-    end
-    local compute = H*3600 + M*60 + S
-    if quit then
-        return compute
     else
-        file.endseconds = compute
+        return H*3600 + M*60 + S
     end
 end
 
@@ -374,7 +364,7 @@ local function change_quit(value)
     if file.quit_timer and file.quit_timer:is_enabled() then
         file.quit_timer:kill()
     end
-    autoquit(convert_time(opts.quit, true))
+    autoquit()
     print("Quit set to " .. opts.quit)
     mp.osd_message("streamsave: quit set to " .. opts.quit)
 end
@@ -562,7 +552,7 @@ end
 
 -- cache duration observation switch for runtime changes
 function observe_cache()
-    convert_time(opts.autoend)
+    file.endseconds = convert_time(opts.autoend)
     if not file.cache_observed and (opts.autostart or file.endseconds) then
         mp.observe_property("demuxer-cache-time", "number", automatic)
         file.cache_observed = true
@@ -570,15 +560,22 @@ function observe_cache()
 end
 observe_cache()
 
-function autoquit(value)
+function autoquit()
     if opts.quit == "no" then
         return
     end
-    file.quit_timer = mp.add_timeout(value, function() mp.command("quit")
-                                     print("Quit after " .. opts.quit)
-                                     end)
+    local quitseconds = convert_time(opts.quit)
+    if not quitseconds then
+        opts.quit = "no"
+        return
+    end
+    file.quit_timer = mp.add_timeout(quitseconds,
+        function()
+            mp.command("quit")
+            print("Quit after " .. opts.quit)
+        end)
 end
-autoquit(convert_time(opts.quit, true))
+autoquit()
 
 mp.register_script_message("streamsave-mode", mode_switch)
 mp.register_script_message("streamsave-title", title_override)
