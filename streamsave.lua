@@ -126,7 +126,7 @@ local file = {
     cache_dumped,    -- whether the current cache has been written
     cache_observed,  -- whether the cache time is being observed
     endseconds,      -- user specified autoend cache time in seconds
-    prior_cache = 0, -- previous cache time
+    prior_cache,     -- previous cache time
     quit_timer,      -- used as a replacement for autoend if hostchange is used
 }
 
@@ -259,6 +259,7 @@ mp.observe_property("media-title", "string", title_change)
 -- Determine container for standard formats
 function container(n, p)
     if p then
+        file.prior_cache = 0
         file.cache_dumped = false
         observe_cache()
     end
@@ -593,11 +594,12 @@ end
 
 -- cache duration observation switch for runtime changes
 function observe_cache()
+    local network = mp.get_property_bool("demuxer-via-network")
     local obs_xyz = opts.autostart or file.endseconds or opts.hostchange
-    if not file.cache_observed and obs_xyz then
+    if not file.cache_observed and obs_xyz and network then
         mp.observe_property("demuxer-cache-time", "number", automatic)
         file.cache_observed = true
-    elseif file.cache_observed and not obs_xyz then
+    elseif file.cache_observed and (not obs_xyz or not network) then
         mp.unobserve_property(automatic)
         file.cache_observed = false
     end
