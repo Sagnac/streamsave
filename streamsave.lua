@@ -338,6 +338,24 @@ local function change_label(value)
     mp.osd_message("streamsave: label changed to " .. opts.output_label)
 end
 
+local function change_marks(value)
+    if not value or value == "no" then
+        opts.range_marks = false
+        ab_chapters = {}
+        mp.set_property_native("chapter-list", chapter_list)
+        print("Range marks disabled")
+        mp.osd_message("streamsave: range marks disabled")
+    elseif value == "yes" then
+        opts.range_marks = true
+        chapter_points()
+        print("Range marks enabled")
+        mp.osd_message("streamsave: range marks enabled")
+    else
+        print("Invalid input '" .. value .. "'. Use yes or no.")
+        mp.osd_message("streamsave: invalid input; use yes or no")
+    end
+end
+
 local function change_autostart(value)
     if not value or value == "no" then
         opts.autostart = false
@@ -615,6 +633,7 @@ mp.register_script_message("streamsave-title", title_override)
 mp.register_script_message("streamsave-extension", format_override)
 mp.register_script_message("streamsave-path", change_path)
 mp.register_script_message("streamsave-label", change_label)
+mp.register_script_message("streamsave-marks", change_marks)
 mp.register_script_message("streamsave-autostart", change_autostart)
 mp.register_script_message("streamsave-autoend", change_end)
 mp.register_script_message("streamsave-hostchange", change_hostchange)
