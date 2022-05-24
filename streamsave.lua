@@ -424,7 +424,7 @@ local function range_stamp()
         local file_range = "-[" .. loop_range():gsub(":", ".") .. "]"
         file.name = file.path .. "/" .. file.title .. file_range .. file.ext
     elseif opts.dump_mode == "current" then
-        local file_pos = mp.get_property_osd("playback-time")
+        local file_pos = mp.get_property_osd("playback-time", "0")
         local file_range = "-[" .. 0 .. " - " .. file_pos:gsub(":", ".") .. "]"
         file.name = file.path .. "/" .. file.title .. file_range .. file.ext
     else
@@ -451,7 +451,7 @@ local function cache_write()
     if opts.dump_mode == "ab" then
         mp.commandv("async", "osd-msg", "ab-loop-dump-cache", file.name)
     elseif opts.dump_mode == "current" then
-        local file_pos = mp.get_property_number("playback-time")
+        local file_pos = mp.get_property_number("playback-time", 0)
         mp.commandv("async", "osd-msg", "dump-cache", "0", file_pos, file.name)
     else -- continuous dumping
         mp.commandv("async", "osd-msg", "dump-cache", "0", "no", file.name)
