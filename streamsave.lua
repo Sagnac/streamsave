@@ -437,11 +437,11 @@ local function increment_filename()
     end
 end
 
-local function range_stamp()
-    if opts.dump_mode == "ab" then
+local function range_stamp(mode)
+    if mode == "ab" then
         local file_range = "-[" .. loop_range():gsub(":", ".") .. "]"
         file.name = file.path .. "/" .. file.title .. file_range .. file.ext
-    elseif opts.dump_mode == "current" then
+    elseif mode == "current" then
         local file_pos = mp.get_property_osd("playback-time", "0")
         local file_range = "-[" .. 0 .. " - " .. file_pos:gsub(":", ".") .. "]"
         file.name = file.path .. "/" .. file.title .. file_range .. file.ext
@@ -451,7 +451,7 @@ local function range_stamp()
     end
 end
 
-local function cache_write()
+local function cache_write(mode)
     if not (file.title and file.ext) then
         return end
     range_flip()
@@ -459,19 +459,19 @@ local function cache_write()
     if opts.output_label == "increment" then
         increment_filename()
     elseif opts.output_label == "range" then
-        range_stamp()
+        range_stamp(mode)
     elseif opts.output_label == "timestamp" then
         file.name = file.path .. "/" .. file.title .. -os.time() .. file.ext
     elseif opts.output_label == "overwrite" then
         file.name = file.path .. "/" .. file.title .. file.ext
     end
     -- dump cache according to mode
-    if opts.dump_mode == "ab" then
+    if mode == "ab" then
         mp.commandv("async", "osd-msg", "ab-loop-dump-cache", file.name)
-    elseif opts.dump_mode == "current" then
+    elseif mode == "current" then
         local file_pos = mp.get_property_number("playback-time", 0)
         mp.commandv("async", "osd-msg", "dump-cache", "0", file_pos, file.name)
-    else -- continuous dumping
+    elseif mode == "continuous" then
         mp.commandv("async", "osd-msg", "dump-cache", "0", "no", file.name)
     end
     -- check if file is written
@@ -577,8 +577,7 @@ local function automatic(_, value)
         return
     end
     if opts.autostart and not file.cache_dumped then
-        opts.dump_mode = "continuous"
-        cache_write()
+        cache_write("continuous")
     end
     if file.cache_dumped and not file.endseconds and not opts.hostchange then
         mp.unobserve_property(automatic)
@@ -642,4 +641,6 @@ mp.register_script_message("streamsave-quit", change_quit)
 mp.add_key_binding("Alt+z", "mode-switch", function() mode_switch("cycle") end)
 mp.add_key_binding("Ctrl+x", "stop-cache-write", stop)
 mp.add_key_binding("Alt+x", "align-cache", align_cache)
-mp.add_key_binding("Ctrl+z", "cache-write", cache_write)
+mp.add_key_binding("Ctrl+z", "cache-write",
+                   function() cache_write(opts.dump_mode)
+                   end)
