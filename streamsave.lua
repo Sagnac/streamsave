@@ -148,6 +148,9 @@ local loop = {
 local convert_time
 local observe_cache
 local title_change
+local file_format
+local audio
+local video
 local container
 local chapter_list = {} -- initial chapter list
 local ab_chapters = {}  -- A-B loop point chapters
@@ -263,32 +266,32 @@ end
 mp.observe_property("media-title", "string", title_change)
 
 -- Determine container for standard formats
-function container(n, p)
-    if p then
+function container(a, v, f)
+    audio = a
+    video = v
+    file_format = f
+    if file_format then
         file.prior_cache = 0
         file.cache_dumped = false
         observe_cache()
+    else
+        return
     end
     if opts.force_extension ~= "no" and not file.oldext then
         return end
-    local file_format = mp.get_property("file-format")
-    local video = mp.get_property("video-format")
-    local audio = mp.get_property("audio-codec-name")
-    if file_format then
-        if string.find(file_format, "mp4")
-           or ((video == "h264" or video == "av1" or not video) and
-               (audio == "aac" or not audio))
-        then
-            file.ext = ".mp4"
-        elseif (video == "vp8" or video == "vp9" or not video)
-           and (audio == "opus" or audio == "vorbis" or not audio)
-        then
-            file.ext = ".webm"
-        else
-            file.ext = ".mkv"
-        end
-        file.oldext = nil
+    if string.find(file_format, "mp4")
+       or ((video == "h264" or video == "av1" or not video) and
+           (audio == "aac" or not audio))
+    then
+        file.ext = ".mp4"
+    elseif (video == "vp8" or video == "vp9" or not video)
+       and (audio == "opus" or audio == "vorbis" or not audio)
+    then
+        file.ext = ".webm"
+    else
+        file.ext = ".mkv"
     end
+    file.oldext = nil
 end
 
 -- Allow user override of file extension
@@ -631,9 +634,15 @@ autoquit()
 --[[ video and audio formats observed in order to handle track changes
 useful if e.g. --script-opts=ytdl_hook-all_formats=yes
 or script-opts=ytdl_hook-use_manifests=yes ]]
-mp.observe_property("file-format", "string", container)
-mp.observe_property("video-format", "string", container)
-mp.observe_property("audio-codec-name", "string", container)
+mp.observe_property("file-format", "string",
+                    function(_, f) container(audio, video, f)
+                    end)
+mp.observe_property("video-format", "string",
+                    function(_, v) container(audio, v, file_format)
+                    end)
+mp.observe_property("audio-codec-name", "string",
+                    function(_, a) container(a, video, file_format)
+                    end)
 
 mp.register_script_message("streamsave-mode", mode_switch)
 mp.register_script_message("streamsave-title", title_override)
