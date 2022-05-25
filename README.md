@@ -13,6 +13,7 @@ Essentially a wrapper around mpv's cache dumping commands, the script adds the f
 * Prevention of file overwrites;
 * Acceptance of inverted loop ranges, allowing the end point to be set first;
 * Dynamic chapter indicators on the OSC displaying the clipping interval;
+* Automated stream saving;
 * Workaround for some DAI HLS streams served from .m3u8 where the host changes.
 
 By default the A-B loop points (set using the `l` key in mpv) determine the portion of the cache written to disk.
@@ -52,7 +53,7 @@ script-message streamsave-label range
 
 ----
 
-## Options
+## General Options
 
 Options are specified in `~~/script-opts/streamsave.conf`
 
@@ -70,7 +71,7 @@ mpv double tilde paths `~~/` and home path shortcuts `~/` are also accepted. By 
 
 `dump_mode=continuous` will use dump-cache, setting the initial timestamp to 0 and leaving the end timestamp unset.
 
-Use this mode if you want to dump the entire cache.  
+Use this mode if you want to dump the entire cache.</br>
 This process will continue as packets are read and until the streams change, the player is closed, or the user presses the stop keybind.
 
 Under this mode pressing the cache-write keybind again will stop writing the first file and initiate another file starting at 0 and continuing as the cache increases.
@@ -97,7 +98,7 @@ There are 3 other choices:
 
 The `force_extension` option allows you to force a preferred format and sidestep the automatic detection.
 
-If using this option it is recommended that a highly flexible container is used (e.g. Matroska).  
+If using this option it is recommended that a highly flexible container is used (e.g. Matroska).</br>
 The format is specified as the extension including the dot (e.g. `force_extension=.mkv`).
 
 If this option is set, `script-message streamsave-extension revert` will run the automatic determination at runtime; running this command again will reset the extension to what's specified in `force_extension`.
@@ -114,6 +115,28 @@ The `output_label` is still used here and file overwrites are prevented if desir
 
 ----
 
+The `range_marks` option allows the script to set temporary chapters at A-B loop points, resulting in visual guides on the OSC.
+
+If chapters already exist they are stored and cleared whenever any A-B points are set. Once the A-B points are cleared the original chapters are restored. Any chapters added after A-B mode is entered are added to the initial chapter list.
+
+Make sure your build of mpv is up to date or at least includes commit [mpv-player/mpv@`96b246d`](https://github.com/mpv-player/mpv/commit/96b246d9283da99b82800bbd576037d115e3c6e9 "mpv commit 96b246d") so that the seekbar chapter indicators/markers update properly on the OSC.
+
+This option is disabled by default; set `range_marks=yes` in streamsave.conf in order to enable it.
+
+You can also enable this feature at runtime using `script-message streamsave-marks yes`.
+
+----
+
+## Automation Options
+
+These features are mostly meant to be used with live streams.
+
+Contrary to general use where you'd typically want a larger cache (clipping streams, writing out everything loaded in memory once etc.), if you're going to be automating any cache writing you probably want a smaller cache size in order to reduce mpv's memory footprint.
+
+This becomes especially important for long streams, which when coupled with constantly writing out the cache to file could slow things down quite a bit and possibly lead to problems. Under automatic saving mode the stream will continuously write to disk immediately so it's not necessary to use a large cache size.
+
+----
+
 The `autostart` and `autoend` options are used for automated stream capturing.
 
 Set `autostart=yes` if you want the script to trigger cache writing immediately on stream load.
@@ -122,20 +145,31 @@ Set `autoend` to a time format of the form `HH:MM:SS` (e.g. `autoend=01:20:08`) 
 
 ----
 
-The `hostchange=yes` option enables an experimental workaround for DAI HLS .m3u8 streams in which the host changes. This option requires `autostart=yes`.
+The `hostchange=yes` option enables an experimental workaround for DAI HLS .m3u8 streams in which the host changes. If enabled this will result in multiple files being output as the stream reloads.
 
-See [`2fc7d6b`](https://github.com/Sagnac/streamsave/commit/2fc7d6bac1bb0cb0bb0574e77eb71f7771264c6b "streamsave commit 2fc7d6b") for more info.
+The `autostart` option must also be enabled in order to autosave these types of streams.
+
+Seeking outside of the cache on normal videos with this option enabled is not supported.
+
+See [`6d5c0e0`](https://github.com/Sagnac/streamsave/commit/6d5c0e04472bd04ad91b5148fb0d9ad5bd9bbb72 "streamsave commit 6d5c0e0") for more info.
+
+----
 
 The `quit=HH:MM:SS` option will set a one shot timer from script load to the specified time at which point the player will exit. This serves as a replacement for `autoend` when using `hostchange`. Both of these features have associated `script-message` commands. Running `script-message streamsave-quit HH:MM:SS` at runtime will reset and restart the timer.
 
 ----
 
-The `range_marks` option allows the script to set temporary chapters at A-B loop points.
+Set `piecewise=yes` if you want to save a stream in parts automatically.
 
-If chapters already exist they are stored and cleared whenever any A-B points are set. Once the A-B points are cleared the original chapters are restored. Any chapters added after A-B mode is entered are added to the initial chapter list.
+This option must be used with `autoend`. Set `autoend` to the duration preferred for each output file.
 
-Make sure your build of mpv is up to date or at least includes commit [mpv-player/mpv@`96b246d`](https://github.com/mpv-player/mpv/commit/96b246d9283da99b82800bbd576037d115e3c6e9 "mpv commit 96b246d") so that the seekbar chapter indicators/markers update properly on the OSC.
+This is mainly for saving long streams on slow systems. On some slower machines dumping a large cache can bog things down quite a bit until the writing stops, so this allows you to dump the cache periodically according to the time set in autoend.
 
-This option is disabled by default. Set `range_marks=yes` in streamsave.conf in order to enable it.
+This feature requires `autostart=yes`.
 
-You can also enable this feature at runtime using `script-message streamsave-marks yes`.
+----
+
+`seamless=yes` will prevent the stream from reloading on host changes until the playback time has reached the end of the current cache.
+
+This suboption of the hostchange feature is meant to be used if you're simultaneously watching the stream.
+Otherwise, if you're automating the stream saving without watching it's recommended to keep this option disabled so that the reset happens immediately.

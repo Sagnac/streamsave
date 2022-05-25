@@ -73,17 +73,28 @@ The range_marks option allows the script to set temporary chapters at A-B loop p
 If chapters already exist they are stored and cleared whenever any A-B points are set.
 Once the A-B points are cleared the original chapters are restored.
 Any chapters added after A-B mode is entered are added to the initial chapter list.
-This option is disabled by default. Set range_marks=yes in streamsave.conf in order to enable it.
+This option is disabled by default; set range_marks=yes in streamsave.conf in order to enable it.
 
 The autostart and autoend options are used for automated stream capturing.
 Set autostart=yes if you want the script to trigger cache writing immediately on stream load.
 Set autoend to a time format of the form HH:MM:SS (e.g. autoend=01:20:08) if you want the file writing
 to stop at that time.
 
-The hostchange=yes option enables an experimental workaround for DAI HLS .m3u8 streams in which the host changes. This option requires autostart=yes.
+The hostchange option enables an experimental workaround for DAI HLS .m3u8 streams in which the host changes.
+If enabled this will result in multiple files being output as the stream reloads.
+The autostart option must also be enabled in order to autosave these types of streams.
+
 The `quit=HH:MM:SS` option will set a one shot timer from script load to the specified time,
 at which point the player will exit. This serves as a replacement for autoend when using hostchange.
 Running `script-message streamsave-quit HH:MM:SS` at runtime will reset and restart the timer.
+
+Set piecewise=yes if you want to save a stream in parts automatically, useful for
+e.g. saving long streams on slow systems. Set autoend to the duration preferred for each output file.
+This feature requires autostart=yes.
+
+seamless=yes will prevent the stream from reloading on host changes until the playback time has reached
+the end of the current cache.
+This suboption of the hostchange feature is meant to be used if you're simultaneously watching the stream.
 
 mpv's script-message command can be used at runtime to set the dump mode, override the output title
 or file extension, change the save directory, or switch the output label.
@@ -118,7 +129,7 @@ local opts = {
     hostchange = false,             -- <yes|no> use if the host changes mid stream
     quit = "no",                    -- <no|HH:MM:SS> quits player at specified time
     piecewise = false,              -- <yes|no> writes stream in parts with autoend
-    seamless = false,               -- <yes|no> reload only if playback reaches end
+    seamless = false,               -- <yes|no> hostch.: reload only at playback ends
 }
 
 -- for internal use
@@ -275,12 +286,13 @@ local function mode_switch(value)
     end
 end
 
--- Replacement of reserved file name characters on Windows
+-- Set the principal part of the file name using the media title
 function title_change(name, media_title, req)
     if opts.force_title ~= "no" and not req then
         file.title = opts.force_title
         return end
     if media_title then
+        -- Replacement of reserved file name characters on Windows
         file.title = media_title:gsub("[\\/:*?\"<>|]", ".")
         file.inc = 1
         file.oldtitle = nil
@@ -317,7 +329,6 @@ function container(a, v, f, req)
     file.oldext = nil
 end
 
--- Allow user override of file extension
 local function format_override(ext)
     ext = ext or file.ext
     file.oldext = file.oldext or file.ext
@@ -334,7 +345,6 @@ local function format_override(ext)
     mp.osd_message("streamsave: file extension changed to " .. file.ext)
 end
 
--- Allow user override of title
 local function title_override(title)
     title = title or file.title
     file.oldtitle = file.oldtitle or file.title
@@ -708,7 +718,7 @@ function autoquit()
 end
 autoquit()
 
--- cache duration observation switch for runtime changes
+-- cache time observation switch for runtime changes
 function observe_cache()
     local network = mp.get_property_bool("demuxer-via-network")
     local obs_xyz = opts.autostart or cache.endsec or opts.hostchange
