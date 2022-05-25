@@ -117,6 +117,7 @@ local opts = {
     autoend = "no",                 -- <no|HH:MM:SS> cache time to stop at
     hostchange = false,             -- <yes|no> use if the host changes mid stream
     quit = "no",                    -- <no|HH:MM:SS> quits player at specified time
+    piecewise = false,              -- <yes|no> writes stream in parts with autoend
 }
 
 -- for internal use
@@ -134,6 +135,7 @@ local file = {
     endseconds,      -- user specified autoend cache time in seconds
     prior_cache,     -- previous cache time
     quit_timer,      -- used as a replacement for autoend if hostchange is used
+    cache_part,      -- the cache time at the end of a piece for piecewise dumps
 }
 
 local loop = {
@@ -273,6 +275,7 @@ function container(a, v, f)
     if file_format then
         file.prior_cache = 0
         file.cache_dumped = false
+        file.cache_part = 0
         observe_cache()
     else
         return
@@ -419,6 +422,21 @@ local function quit_override(value)
     autoquit()
     print("Quit set to " .. opts.quit)
     mp.osd_message("streamsave: quit set to " .. opts.quit)
+end
+
+local function piecewise_override(value)
+    if not value or value == "no" then
+        opts.piecewise = false
+        print("Piecewise dumping disabled")
+        mp.osd_message("streamsave: piecewise dumping disabled")
+    elseif value == "yes" then
+        opts.piecewise = true
+        print("Piecewise dumping enabled")
+        mp.osd_message("streamsave: piecewise dumping enabled")
+    else
+        print("Invalid input '" .. value .. "'. Use yes or no.")
+        mp.osd_message("streamsave: invalid input; use yes or no")
+    end
 end
 
 local function range_flip()
@@ -586,17 +604,33 @@ local function automatic(_, cache_time)
     elseif not cache_time then
         return
     end
+    -- cache write according to automatic options
     if opts.autostart and not file.cache_dumped then
-        cache_write("continuous")
+        if opts.piecewise and file.cache_part then
+            mp.set_property_number("ab-loop-a", file.cache_part)
+            mp.set_property("ab-loop-b", "no")
+            cache_write("ab")
+        else
+            cache_write("continuous")
+        end
     end
+    -- unobserve cache time if not needed
     if file.cache_dumped and not file.endseconds and not opts.hostchange then
         mp.unobserve_property(automatic)
         file.cache_observed = false
     end
-    if file.endseconds and file.cache_dumped and cache_time >= file.endseconds then
+    -- stop cache dump
+    if file.endseconds and file.cache_dumped and
+       cache_time - file.cache_part >= file.endseconds
+    then
+        if opts.piecewise then
+            file.cache_part = cache_time
+            file.cache_dumped = false
+        else
+            mp.unobserve_property(automatic)
+            file.cache_observed = false
+        end
         stop()
-        mp.unobserve_property(automatic)
-        file.cache_observed = false
     end
     file.prior_cache = cache_time
 end
@@ -654,6 +688,7 @@ mp.register_script_message("streamsave-autostart", autostart_override)
 mp.register_script_message("streamsave-autoend", end_override)
 mp.register_script_message("streamsave-hostchange", hostchange_override)
 mp.register_script_message("streamsave-quit", quit_override)
+mp.register_script_message("streamsave-piecewise", piecewise_override)
 
 mp.add_key_binding("Alt+z", "mode-switch", function() mode_switch("cycle") end)
 mp.add_key_binding("Ctrl+x", "stop-cache-write", stop)
