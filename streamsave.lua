@@ -325,7 +325,7 @@ local function title_override(title)
     mp.osd_message("streamsave: title changed to " .. file.title)
 end
 
-local function change_path(value)
+local function path_override(value)
     value = value or opts.save_directory
     file.oldpath = file.oldpath or opts.save_directory
     if value == "revert" then
@@ -338,14 +338,14 @@ local function change_path(value)
     mp.osd_message("streamsave: directory changed to " .. opts.save_directory)
 end
 
-local function change_label(value)
+local function label_override(value)
     opts.output_label = value or opts.output_label
     validate_opts()
     print("File label changed to " .. opts.output_label)
     mp.osd_message("streamsave: label changed to " .. opts.output_label)
 end
 
-local function change_marks(value)
+local function marks_override(value)
     if not value or value == "no" then
         opts.range_marks = false
         ab_chapters = {}
@@ -363,7 +363,7 @@ local function change_marks(value)
     end
 end
 
-local function change_autostart(value)
+local function autostart_override(value)
     if not value or value == "no" then
         opts.autostart = false
         print("Autostart disabled")
@@ -379,7 +379,7 @@ local function change_autostart(value)
     end
 end
 
-local function change_end(value)
+local function end_override(value)
     opts.autoend = value or opts.autoend
     file.endseconds = convert_time(opts.autoend)
     observe_cache()
@@ -392,7 +392,7 @@ local function change_end(value)
     end
 end
 
-local function change_hostchange(value)
+local function hostchange_override(value)
     if not value or value == "no" then
         opts.hostchange = false
         print("Hostchange disabled")
@@ -408,7 +408,7 @@ local function change_hostchange(value)
     end
 end
 
-local function change_quit(value)
+local function quit_override(value)
     opts.quit = value or opts.quit
     if file.quit_timer and file.quit_timer:is_enabled() then
         file.quit_timer:kill()
@@ -572,15 +572,15 @@ local function stop()
     mp.commandv("async", "osd-msg", "dump-cache", "0", "no", "")
 end
 
-local function automatic(_, value)
+local function automatic(_, cache_time)
     if opts.hostchange and file.prior_cache ~= 0
-       and (not value or math.abs(value - file.prior_cache) > 300)
+       and (not cache_time or math.abs(cache_time - file.prior_cache) > 300)
     then
         -- reload stream
         file.prior_cache = 0
         mp.command("playlist-play-index current")
         return
-    elseif not value then
+    elseif not cache_time then
         return
     end
     if opts.autostart and not file.cache_dumped then
@@ -590,12 +590,12 @@ local function automatic(_, value)
         mp.unobserve_property(automatic)
         file.cache_observed = false
     end
-    if file.endseconds and file.cache_dumped and value >= file.endseconds then
+    if file.endseconds and file.cache_dumped and cache_time >= file.endseconds then
         stop()
         mp.unobserve_property(automatic)
         file.cache_observed = false
     end
-    file.prior_cache = value
+    file.prior_cache = cache_time
 end
 
 -- cache duration observation switch for runtime changes
@@ -638,13 +638,13 @@ mp.observe_property("audio-codec-name", "string", container)
 mp.register_script_message("streamsave-mode", mode_switch)
 mp.register_script_message("streamsave-title", title_override)
 mp.register_script_message("streamsave-extension", format_override)
-mp.register_script_message("streamsave-path", change_path)
-mp.register_script_message("streamsave-label", change_label)
-mp.register_script_message("streamsave-marks", change_marks)
-mp.register_script_message("streamsave-autostart", change_autostart)
-mp.register_script_message("streamsave-autoend", change_end)
-mp.register_script_message("streamsave-hostchange", change_hostchange)
-mp.register_script_message("streamsave-quit", change_quit)
+mp.register_script_message("streamsave-path", path_override)
+mp.register_script_message("streamsave-label", label_override)
+mp.register_script_message("streamsave-marks", marks_override)
+mp.register_script_message("streamsave-autostart", autostart_override)
+mp.register_script_message("streamsave-autoend", end_override)
+mp.register_script_message("streamsave-hostchange", hostchange_override)
+mp.register_script_message("streamsave-quit", quit_override)
 
 mp.add_key_binding("Alt+z", "mode-switch", function() mode_switch("cycle") end)
 mp.add_key_binding("Ctrl+x", "stop-cache-write", stop)
