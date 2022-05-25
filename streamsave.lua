@@ -130,12 +130,6 @@ local file = {
     oldtitle,        -- initialized if title is overridden, allows revert
     oldext,          -- initialized if format is overridden, allows revert
     oldpath,         -- initialized if directory is overriden, allows revert
-    cache_dumped,    -- whether the current cache has been written
-    cache_observed,  -- whether the cache time is being observed
-    endseconds,      -- user specified autoend cache time in seconds
-    prior_cache,     -- previous cache time
-    quit_timer,      -- used as a replacement for autoend if hostchange is used
-    cache_part,      -- the cache time at the end of a piece for piecewise dumps
 }
 
 local loop = {
@@ -145,6 +139,14 @@ local loop = {
     b_revert,        -- B loop point prior to keyframe alignment
     range,           -- A-B loop range
     aligned,         -- are the loop points aligned to keyframes?
+}
+
+local cache = {
+    dumped,    -- whether the current cache has been written
+    observed,  -- whether the cache time is being observed
+    endsec,    -- user specified autoend cache time in seconds
+    prior,     -- previous cache time
+    part,      -- the cache time at the end of a piece for piecewise dumps
 }
 
 local convert_time
@@ -157,6 +159,7 @@ local container
 local chapter_list = {} -- initial chapter list
 local ab_chapters = {}  -- A-B loop point chapters
 local chapter_points
+local quit_timer
 local autoquit
 
 local function validate_opts()
@@ -200,9 +203,10 @@ local function update_opts(changed)
         end
     end
     if changed["autoend"] then
-        file.endseconds = convert_time(opts.autoend)
+        cache.endsec = convert_time(opts.autoend)
+        observe_cache()
     end
-    if changed["autostart"] or changed["autoend"] or changed["hostchange"] then
+    if changed["autostart"] or changed["hostchange"] then
         observe_cache()
     end
     if changed["quit"] then
@@ -222,8 +226,9 @@ function convert_time(value)
         return H*3600 + M*60 + S
     end
 end
+
 if opts.autoend ~= "no" then
-    file.endseconds = convert_time(opts.autoend)
+    cache.endsec = convert_time(opts.autoend)
 end
 
 -- dump mode switching
@@ -265,22 +270,19 @@ function title_change(name, media_title)
         file.oldtitle = nil
     end
 end
-mp.observe_property("media-title", "string", title_change)
 
 -- Determine container for standard formats
 function container(a, v, f)
     audio = a
     video = v
     file_format = f
-    if file_format then
-        file.prior_cache = 0
-        file.cache_dumped = false
-        file.cache_part = 0
-        observe_cache()
-    else
-        return
-    end
+    cache.prior = 0
+    cache.dumped = false
+    cache.part = 0
+    if not file_format then
+        return end
     if opts.force_extension ~= "no" and not file.oldext then
+        observe_cache()
         return end
     if string.find(file_format, "mp4")
        or ((video == "h264" or video == "av1" or not video) and
@@ -294,6 +296,7 @@ function container(a, v, f)
     else
         file.ext = ".mkv"
     end
+    observe_cache()
     file.oldext = nil
 end
 
@@ -387,9 +390,9 @@ end
 
 local function end_override(value)
     opts.autoend = value or opts.autoend
-    file.endseconds = convert_time(opts.autoend)
+    cache.endsec = convert_time(opts.autoend)
     observe_cache()
-    if file.endseconds or opts.autoend == "no" then
+    if cache.endsec or opts.autoend == "no" then
         print("Autoend set to " .. opts.autoend)
         mp.osd_message("streamsave: autoend set to " .. opts.autoend)
     else
@@ -416,8 +419,8 @@ end
 
 local function quit_override(value)
     opts.quit = value or opts.quit
-    if file.quit_timer and file.quit_timer:is_enabled() then
-        file.quit_timer:kill()
+    if quit_timer and quit_timer:is_enabled() then
+        quit_timer:kill()
     end
     autoquit()
     print("Quit set to " .. opts.quit)
@@ -508,7 +511,7 @@ local function cache_write(mode)
         if opts.output_label == "increment" then
             file.inc = file.inc + 1
         end
-        file.cache_dumped = true
+        cache.dumped = true
     end
 end
 
@@ -579,35 +582,26 @@ function chapter_points()
     end
 end
 
---[[ Loading chapters can be slow especially if they're passed from
-an external file, so make sure existing chapters are not overwritten
-by observing A-B loop changes only after the file is loaded. ]]
-local function on_file_load()
-    mp.observe_property("ab-loop-a", "native", chapter_points)
-    mp.observe_property("ab-loop-b", "native", chapter_points)
-end
-mp.register_event("file-loaded", on_file_load)
-
 -- stops writing the file
 local function stop()
     mp.commandv("async", "osd-msg", "dump-cache", "0", "no", "")
 end
 
 local function automatic(_, cache_time)
-    if opts.hostchange and file.prior_cache ~= 0
-       and (not cache_time or math.abs(cache_time - file.prior_cache) > 300)
+    if opts.hostchange and cache.prior ~= 0
+       and (not cache_time or math.abs(cache_time - cache.prior) > 300)
     then
         -- reload stream
-        file.prior_cache = 0
+        cache.prior = 0
         mp.command("playlist-play-index current")
         return
     elseif not cache_time then
         return
     end
     -- cache write according to automatic options
-    if opts.autostart and not file.cache_dumped then
-        if opts.piecewise and file.cache_part then
-            mp.set_property_number("ab-loop-a", file.cache_part)
+    if opts.autostart and not cache.dumped then
+        if opts.piecewise then
+            mp.set_property_number("ab-loop-a", cache.part)
             mp.set_property("ab-loop-b", "no")
             cache_write("ab")
         else
@@ -615,37 +609,24 @@ local function automatic(_, cache_time)
         end
     end
     -- unobserve cache time if not needed
-    if file.cache_dumped and not file.endseconds and not opts.hostchange then
+    if cache.dumped and not cache.endsec and not opts.hostchange then
         mp.unobserve_property(automatic)
-        file.cache_observed = false
+        cache.observed = false
     end
     -- stop cache dump
-    if file.endseconds and file.cache_dumped and
-       cache_time - file.cache_part >= file.endseconds
+    if cache.endsec and cache.dumped and
+       cache_time - cache.part >= cache.endsec
     then
         if opts.piecewise then
-            file.cache_part = cache_time
-            file.cache_dumped = false
+            cache.part = cache_time
+            cache.dumped = false
         else
             mp.unobserve_property(automatic)
-            file.cache_observed = false
+            cache.observed = false
         end
         stop()
     end
-    file.prior_cache = cache_time
-end
-
--- cache duration observation switch for runtime changes
-function observe_cache()
-    local network = mp.get_property_bool("demuxer-via-network")
-    local obs_xyz = opts.autostart or file.endseconds or opts.hostchange
-    if not file.cache_observed and obs_xyz and network then
-        mp.observe_property("demuxer-cache-time", "number", automatic)
-        file.cache_observed = true
-    elseif file.cache_observed and (not obs_xyz or not network) then
-        mp.unobserve_property(automatic)
-        file.cache_observed = false
-    end
+    cache.prior = cache_time
 end
 
 function autoquit()
@@ -657,13 +638,28 @@ function autoquit()
         opts.quit = "no"
         return
     end
-    file.quit_timer = mp.add_timeout(quitseconds,
+    quit_timer = mp.add_timeout(quitseconds,
         function()
             mp.command("quit")
             print("Quit after " .. opts.quit)
         end)
 end
 autoquit()
+
+-- cache duration observation switch for runtime changes
+function observe_cache()
+    local network = mp.get_property_bool("demuxer-via-network")
+    local obs_xyz = opts.autostart or cache.endsec or opts.hostchange
+    if not cache.observed and obs_xyz and network then
+        mp.observe_property("demuxer-cache-time", "number", automatic)
+        cache.observed = true
+    elseif cache.observed and (not obs_xyz or not network) then
+        mp.unobserve_property(automatic)
+        cache.observed = false
+    end
+end
+
+mp.observe_property("media-title", "string", title_change)
 
 --[[ video and audio formats observed in order to handle track changes
 useful if e.g. --script-opts=ytdl_hook-all_formats=yes
@@ -677,6 +673,15 @@ mp.observe_property("video-format", "string",
 mp.observe_property("audio-codec-name", "string",
                     function(_, a) container(a, video, file_format)
                     end)
+
+--[[ Loading chapters can be slow especially if they're passed from
+an external file, so make sure existing chapters are not overwritten
+by observing A-B loop changes only after the file is loaded. ]]
+local function on_file_load()
+    mp.observe_property("ab-loop-a", "native", chapter_points)
+    mp.observe_property("ab-loop-b", "native", chapter_points)
+end
+mp.register_event("file-loaded", on_file_load)
 
 mp.register_script_message("streamsave-mode", mode_switch)
 mp.register_script_message("streamsave-title", title_override)
