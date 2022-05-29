@@ -146,7 +146,7 @@ local cache = {
     observed,  -- whether the cache time is being observed
     endsec,    -- user specified autoend cache time in seconds
     prior,     -- previous cache time
-    part,      -- the cache time at the end of a piece for piecewise dumps
+    part,      -- seekable cache end timestamp of a piece for piecewise dumps
 }
 
 local convert_time
@@ -277,8 +277,8 @@ function container(a, v, f)
     video = v
     file_format = f
     cache.prior = 0
-    cache.dumped = false
     cache.part = 0
+    cache.dumped = false
     if not file_format then
         return end
     if opts.force_extension ~= "no" and not file.oldext then
@@ -618,7 +618,12 @@ local function automatic(_, cache_time)
        cache_time - cache.part >= cache.endsec
     then
         if opts.piecewise then
-            cache.part = cache_time
+            -- use the seekable part of the cache for more accurate timestamps
+            local cache_state = mp.get_property_native("demuxer-cache-state", {})
+            local seekable = cache_state["seekable-ranges"]
+            local seekable_index = seekable and seekable[#seekable]
+            local cache_end = seekable_index and seekable_index["end"]
+            cache.part = cache_end or cache.part
             cache.dumped = false
         else
             mp.unobserve_property(automatic)
