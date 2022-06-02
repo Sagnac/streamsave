@@ -118,6 +118,7 @@ local opts = {
     hostchange = false,             -- <yes|no> use if the host changes mid stream
     quit = "no",                    -- <no|HH:MM:SS> quits player at specified time
     piecewise = false,              -- <yes|no> writes stream in parts with autoend
+    seamless = false,               -- <yes|no> reload only if playback reaches end
 }
 
 -- for internal use
@@ -146,7 +147,8 @@ local cache = {
     observed,  -- whether the cache time is being observed
     endsec,    -- user specified autoend cache time in seconds
     prior,     -- previous cache time
-    part,      -- seekable cache end timestamp of a piece for piecewise dumps
+    seekend,   -- seekable cache end timestamp
+    part,      -- approx. end time of last piece / start time of next piece
 }
 
 local convert_time
@@ -444,6 +446,21 @@ local function piecewise_override(value)
     end
 end
 
+local function seamless_override(value)
+    if not value or value == "no" then
+        opts.seamless = false
+        print("Seamless host change reloading disabled")
+        mp.osd_message("streamsave: seamless disabled")
+    elseif value == "yes" then
+        opts.seamless = true
+        print("Seamless host change reloading enabled")
+        mp.osd_message("streamsave: seamless enabled")
+    else
+        msg.warn("Invalid input '" .. value .. "'. Use yes or no.")
+        mp.osd_message("streamsave: invalid input; use yes or no")
+    end
+end
+
 local function range_flip()
     loop.a = mp.get_property_number("ab-loop-a")
     loop.b = mp.get_property_number("ab-loop-b")
@@ -591,13 +608,40 @@ local function stop()
     mp.commandv("async", "osd-msg", "dump-cache", "0", "no", "")
 end
 
+local function get_seekable_cache()
+    -- use the seekable part of the cache for more accurate timestamps
+    local cache_state = mp.get_property_native("demuxer-cache-state", {})
+    local seekable = cache_state["seekable-ranges"]
+    local seekable_index = seekable and seekable[#seekable]
+    local cache_end = seekable_index and seekable_index["end"]
+    cache.seekend = cache_end or 0
+    return cache.seekend
+end
+
+local function seamless_reset(_, play_time)
+    if not play_time or play_time == 0 or play_time >= cache.seekend then
+        mp.unobserve_property(seamless_reset)
+        cache.prior = 0
+        mp.command("playlist-play-index current")
+    end
+end
+
 local function automatic(_, cache_time)
     if opts.hostchange and cache.prior ~= 0
        and (not cache_time or math.abs(cache_time - cache.prior) > 300)
     then
-        -- reload stream
-        cache.prior = 0
-        mp.command("playlist-play-index current")
+        if opts.seamless then
+            get_seekable_cache()
+            if cache.dumped then
+                stop()
+            end
+            mp.unobserve_property(automatic)
+            mp.observe_property("playback-time", "number", seamless_reset)
+        else
+            -- reload stream
+            cache.prior = 0
+            mp.command("playlist-play-index current")
+        end
         return
     elseif not cache_time then
         return
@@ -620,14 +664,11 @@ local function automatic(_, cache_time)
        cache_time - cache.part >= cache.endsec
     then
         if opts.piecewise then
-            -- use the seekable part of the cache for more accurate timestamps
-            local cache_state = mp.get_property_native("demuxer-cache-state", {})
-            local seekable = cache_state["seekable-ranges"]
-            local seekable_index = seekable and seekable[#seekable]
-            local cache_end = seekable_index and seekable_index["end"]
-            cache.part = cache_end or cache.part
+            cache.part = get_seekable_cache()
             mp.set_property_number("ab-loop-a", cache.part)
             mp.set_property("ab-loop-b", "no")
+            -- try and make the next piece start on the final keyframe of this piece
+            loop.aligned = false
             align_cache(true)
             cache.dumped = false
         else
@@ -704,6 +745,7 @@ mp.register_script_message("streamsave-autoend", end_override)
 mp.register_script_message("streamsave-hostchange", hostchange_override)
 mp.register_script_message("streamsave-quit", quit_override)
 mp.register_script_message("streamsave-piecewise", piecewise_override)
+mp.register_script_message("streamsave-seamless", seamless_override)
 
 mp.add_key_binding("Alt+z", "mode-switch", function() mode_switch("cycle") end)
 mp.add_key_binding("Ctrl+x", "stop-cache-write", stop)
