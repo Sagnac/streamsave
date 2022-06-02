@@ -522,14 +522,16 @@ Use align-cache if you want to know which range will likely be dumped.
 Keep in mind this changes the A-B loop points you've set.
 This is sometimes inaccurate. Calling align_cache() again will reset the points
 to their initial values. ]]
-local function align_cache()
+local function align_cache(auto)
     if not loop.aligned then
         range_flip()
         loop.a_revert = loop.a
         loop.b_revert = loop.b
         mp.commandv("osd-msg", "ab-loop-align-cache")
-        loop.aligned = true
-        print("Adjusted range: " .. loop_range())
+        if not auto then
+            loop.aligned = true
+            print("Adjusted range: " .. loop_range())
+        end
     else
         mp.set_property_native("ab-loop-a", loop.a_revert)
         mp.set_property_native("ab-loop-b", loop.b_revert)
@@ -602,9 +604,7 @@ local function automatic(_, cache_time)
     end
     -- cache write according to automatic options
     if opts.autostart and not cache.dumped then
-        if opts.piecewise then
-            mp.set_property_number("ab-loop-a", cache.part)
-            mp.set_property("ab-loop-b", "no")
+        if opts.piecewise and cache.part ~= 0 then
             cache_write("ab")
         else
             cache_write("continuous")
@@ -626,6 +626,9 @@ local function automatic(_, cache_time)
             local seekable_index = seekable and seekable[#seekable]
             local cache_end = seekable_index and seekable_index["end"]
             cache.part = cache_end or cache.part
+            mp.set_property_number("ab-loop-a", cache.part)
+            mp.set_property("ab-loop-b", "no")
+            align_cache(true)
             cache.dumped = false
         else
             mp.unobserve_property(automatic)
