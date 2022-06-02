@@ -367,7 +367,7 @@ local function marks_override(value)
         print("Range marks enabled")
         mp.osd_message("streamsave: range marks enabled")
     else
-        print("Invalid input '" .. value .. "'. Use yes or no.")
+        msg.warn("Invalid input '" .. value .. "'. Use yes or no.")
         mp.osd_message("streamsave: invalid input; use yes or no")
     end
 end
@@ -383,7 +383,7 @@ local function autostart_override(value)
         print("Autostart enabled")
         mp.osd_message("streamsave: autostart enabled")
     else
-        print("Invalid input '" .. value .. "'. Use yes or no.")
+        msg.warn("Invalid input '" .. value .. "'. Use yes or no.")
         mp.osd_message("streamsave: invalid input; use yes or no")
     end
 end
@@ -396,7 +396,7 @@ local function end_override(value)
         print("Autoend set to " .. opts.autoend)
         mp.osd_message("streamsave: autoend set to " .. opts.autoend)
     else
-        print("Invalid input '" .. opts.autoend .. "'. Use HH:MM:SS format.")
+        msg.warn("Invalid input '" .. opts.autoend .. "'. Use HH:MM:SS format.")
         mp.osd_message("streamsave: invalid input; use HH:MM:SS format")
     end
 end
@@ -412,7 +412,7 @@ local function hostchange_override(value)
         print("Hostchange enabled")
         mp.osd_message("streamsave: hostchange enabled")
     else
-        print("Invalid input '" .. value .. "'. Use yes or no.")
+        msg.warn("Invalid input '" .. value .. "'. Use yes or no.")
         mp.osd_message("streamsave: invalid input; use yes or no")
     end
 end
@@ -437,7 +437,7 @@ local function piecewise_override(value)
         print("Piecewise dumping enabled")
         mp.osd_message("streamsave: piecewise dumping enabled")
     else
-        print("Invalid input '" .. value .. "'. Use yes or no.")
+        msg.warn("Invalid input '" .. value .. "'. Use yes or no.")
         mp.osd_message("streamsave: invalid input; use yes or no")
     end
 end
