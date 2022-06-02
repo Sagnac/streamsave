@@ -402,19 +402,21 @@ local function end_override(value)
 end
 
 local function hostchange_override(value)
+    if value and value ~= "no" and value ~= "yes" then
+        msg.warn("Invalid input '" .. value .. "'. Use yes or no.")
+        mp.osd_message("streamsave: invalid input; use yes or no")
+        return
+    end
     if not value or value == "no" then
         opts.hostchange = false
         print("Hostchange disabled")
         mp.osd_message("streamsave: hostchange disabled")
     elseif value == "yes" then
         opts.hostchange = true
-        observe_cache()
         print("Hostchange enabled")
         mp.osd_message("streamsave: hostchange enabled")
-    else
-        msg.warn("Invalid input '" .. value .. "'. Use yes or no.")
-        mp.osd_message("streamsave: invalid input; use yes or no")
     end
+    observe_cache()
 end
 
 local function quit_override(value)
