@@ -562,7 +562,7 @@ end
 function chapter_points()
     if not opts.range_marks then
         return end
-    local current_chapters = mp.get_property_native("chapter-list")
+    local current_chapters = mp.get_property_native("chapter-list", {})
     -- make sure master list is up to date
     if current_chapters[1] and
        not string.match(current_chapters[1]["title"], "^[AB] loop point$")
