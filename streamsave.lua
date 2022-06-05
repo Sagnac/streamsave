@@ -432,9 +432,6 @@ end
 
 local function quit_override(value)
     opts.quit = value or opts.quit
-    if quit_timer and quit_timer:is_enabled() then
-        quit_timer:kill()
-    end
     validate_opts()
     autoquit()
     print("Quit set to " .. opts.quit)
@@ -692,13 +689,20 @@ end
 
 function autoquit()
     if opts.quit == "no" then
-        return
+        if quit_timer then
+            quit_timer:kill()
+        end
+    elseif not quit_timer then
+        quit_timer = mp.add_timeout(quitseconds,
+            function()
+                mp.command("quit")
+                print("Quit after " .. opts.quit)
+            end)
+    else
+        quit_timer["timeout"] = quitseconds
+        quit_timer:kill()
+        quit_timer:resume()
     end
-    quit_timer = mp.add_timeout(quitseconds,
-        function()
-            mp.command("quit")
-            print("Quit after " .. opts.quit)
-        end)
 end
 autoquit()
 
