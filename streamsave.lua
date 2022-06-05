@@ -161,8 +161,18 @@ local container
 local chapter_list = {} -- initial chapter list
 local ab_chapters = {}  -- A-B loop point chapters
 local chapter_points
+local quitseconds
 local quit_timer
 local autoquit
+
+function convert_time(value)
+    local i, j, H, M, S = value:find("(%d+):(%d+):(%d+)")
+    if not i then
+        return
+    else
+        return H*3600 + M*60 + S
+    end
+end
 
 local function validate_opts()
     if opts.output_label ~= "increment" and
@@ -180,9 +190,26 @@ local function validate_opts()
         msg.warn("Invalid dump_mode '" .. opts.dump_mode .. "'")
         opts.dump_mode = "ab"
     end
+    if opts.autoend ~= "no" then
+        cache.endsec = convert_time(opts.autoend)
+        if not cache.endsec then
+            msg.warn("Invalid autoend value '" .. opts.autoend ..
+                     "'. Use HH:MM:SS format.")
+            opts.autoend = "no"
+        end
+    end
+    if opts.quit ~= "no" then
+        quitseconds = convert_time(opts.quit)
+        if not quitseconds then
+            msg.warn("Invalid quit value '" .. opts.quit ..
+                     "'. Use HH:MM:SS format.")
+            opts.quit = "no"
+        end
+    end
 end
 
 local function update_opts(changed)
+    validate_opts()
     -- expand mpv meta paths (e.g. ~~/directory)
     file.path = mp.command_native({"expand-path", opts.save_directory})
     if opts.force_title ~= "no" then
@@ -214,24 +241,10 @@ local function update_opts(changed)
     if changed["quit"] then
         autoquit()
     end
-    validate_opts()
 end
 
 options.read_options(opts, "streamsave", update_opts)
 update_opts{}
-
-function convert_time(value)
-    local i, j, H, M, S = value:find("(%d+):(%d+):(%d+)")
-    if not i then
-        return
-    else
-        return H*3600 + M*60 + S
-    end
-end
-
-if opts.autoend ~= "no" then
-    cache.endsec = convert_time(opts.autoend)
-end
 
 -- dump mode switching
 local function mode_switch(value)
@@ -392,15 +405,11 @@ end
 
 local function end_override(value)
     opts.autoend = value or opts.autoend
+    validate_opts()
     cache.endsec = convert_time(opts.autoend)
     observe_cache()
-    if cache.endsec or opts.autoend == "no" then
-        print("Autoend set to " .. opts.autoend)
-        mp.osd_message("streamsave: autoend set to " .. opts.autoend)
-    else
-        msg.warn("Invalid input '" .. opts.autoend .. "'. Use HH:MM:SS format.")
-        mp.osd_message("streamsave: invalid input; use HH:MM:SS format")
-    end
+    print("Autoend set to " .. opts.autoend)
+    mp.osd_message("streamsave: autoend set to " .. opts.autoend)
 end
 
 local function hostchange_override(value)
@@ -426,6 +435,7 @@ local function quit_override(value)
     if quit_timer and quit_timer:is_enabled() then
         quit_timer:kill()
     end
+    validate_opts()
     autoquit()
     print("Quit set to " .. opts.quit)
     mp.osd_message("streamsave: quit set to " .. opts.quit)
@@ -682,11 +692,6 @@ end
 
 function autoquit()
     if opts.quit == "no" then
-        return
-    end
-    local quitseconds = convert_time(opts.quit)
-    if not quitseconds then
-        opts.quit = "no"
         return
     end
     quit_timer = mp.add_timeout(quitseconds,
