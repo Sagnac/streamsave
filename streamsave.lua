@@ -216,12 +216,12 @@ local function update_opts(changed)
         file.title = opts.force_title
         file.inc = file.inc or 1
     elseif changed["force_title"] then
-        title_change(_, mp.get_property("media-title"))
+        title_change(_, mp.get_property("media-title"), true)
     end
     if opts.force_extension ~= "no" then
         file.ext = opts.force_extension
     elseif changed["force_extension"] then
-        container()
+        container(audio, video, file_format, true)
     end
     if changed["range_marks"] then
         if opts.range_marks then
@@ -276,8 +276,9 @@ local function mode_switch(value)
 end
 
 -- Replacement of reserved file name characters on Windows
-function title_change(name, media_title)
-    if opts.force_title ~= "no" and not file.oldtitle then
+function title_change(name, media_title, req)
+    if opts.force_title ~= "no" and not req then
+        file.title = opts.force_title
         return end
     if media_title then
         file.title = media_title:gsub("[\\/:*?\"<>|]", ".")
@@ -287,7 +288,7 @@ function title_change(name, media_title)
 end
 
 -- Determine container for standard formats
-function container(a, v, f)
+function container(a, v, f, req)
     audio = a
     video = v
     file_format = f
@@ -296,7 +297,8 @@ function container(a, v, f)
     cache.dumped = false
     if not file_format then
         return end
-    if opts.force_extension ~= "no" and not file.oldext then
+    if opts.force_extension ~= "no" and not req then
+        file.ext = opts.force_extension
         observe_cache()
         return end
     if string.find(file_format, "mp4")
@@ -320,7 +322,7 @@ local function format_override(ext)
     ext = ext or file.ext
     file.oldext = file.oldext or file.ext
     if ext == "revert" and file.ext == opts.force_extension then
-        container()
+        container(audio, video, file_format, true)
     elseif ext == "revert" and opts.force_extension ~= "no" then
         file.ext = opts.force_extension
     elseif ext == "revert" then
@@ -337,7 +339,7 @@ local function title_override(title)
     title = title or file.title
     file.oldtitle = file.oldtitle or file.title
     if title == "revert" and file.title == opts.force_title then
-        title_change(_, mp.get_property("media-title"))
+        title_change(_, mp.get_property("media-title"), true)
     elseif title == "revert" and opts.force_title ~= "no" then
         file.title = opts.force_title
     elseif title == "revert" then
