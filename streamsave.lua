@@ -252,6 +252,9 @@ local function update_opts(changed)
     if changed["quit"] then
         autoquit()
     end
+    if changed["piecewise"] and not opts.piecewise then
+        cache.part = 0
+    end
 end
 
 options.read_options(opts, "streamsave", update_opts)
@@ -453,6 +456,7 @@ end
 local function piecewise_override(value)
     if not value or value == "no" then
         opts.piecewise = false
+        cache.part = 0
         print("Piecewise dumping disabled")
         mp.osd_message("streamsave: piecewise dumping disabled")
     elseif value == "yes" then
