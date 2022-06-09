@@ -131,7 +131,7 @@ You can also enable this feature at runtime using `script-message streamsave-mar
 
 These features are mostly meant to be used with live streams.
 
-Contrary to general use where you'd typically want a larger cache (clipping streams, writing out everything loaded in memory once etc.), if you're going to be automating any cache writing you probably want a smaller cache size in order to reduce mpv's memory footprint.
+Contrary to general use where you'd typically want a larger cache (clipping streams, saving a full video, writing out everything loaded in memory, etc.), if you're going to be automating any cache writing you probably want a smaller cache size in order to reduce mpv's memory footprint.
 
 This becomes especially important for long streams, which when coupled with constantly writing out the cache to file could slow things down quite a bit and possibly lead to problems. Under automatic saving mode the stream will continuously write to disk immediately so it's not necessary to use a large cache size.
 
@@ -141,7 +141,7 @@ The `autostart` and `autoend` options are used for automated stream capturing.
 
 Set `autostart=yes` if you want the script to trigger cache writing immediately on stream load.
 
-Set `autoend` to a time format of the form `HH:MM:SS` (e.g. `autoend=01:20:08`) if you want the file writing to stop at that time. The `autoend` feature accepts runtime `script-message` commands under the `streamsave-autoend` name.
+Set `autoend` to a time format of the form `HH:MM:SS` (e.g. `autoend=01:20:08`) if you want the file writing to stop after that much of the stream has been cached. The `autoend` feature accepts runtime `script-message` commands under the `streamsave-autoend` name.
 
 ----
 
@@ -155,21 +155,23 @@ See [`6d5c0e0`](https://github.com/Sagnac/streamsave/commit/6d5c0e04472bd04ad91b
 
 ----
 
-The `quit=HH:MM:SS` option will set a one shot timer from script load to the specified time at which point the player will exit. This serves as a replacement for `autoend` when using `hostchange`. Both of these features have associated `script-message` commands. Running `script-message streamsave-quit HH:MM:SS` at runtime will reset and restart the timer.
+The `quit=HH:MM:SS` option will set a one shot quit timer at script load, serving as a replacement for `autoend` when using `hostchange`; once the specified time has elapsed the player will exit.
+
+Both of these features have associated `script-message` commands. Running `script-message streamsave-quit HH:MM:SS` at runtime will reset the timer to the specified duration and restart it from the point of input; it can also be disabled entirely by passing `no`. `hostchange` accepts either `yes` or `no`.
 
 ----
 
-Set `piecewise=yes` if you want to save a stream in parts automatically.
+Set `piecewise=yes` if you want to save a stream in parts automatically. This feature will divide a continuous stream into separate output files based on time, which is useful for capturing individual episodic content from a broadcast.
 
-This option must be used with `autoend`. Set `autoend` to the duration preferred for each output file.
+This option must be used with `autoend` which controls the piece size; set `autoend` to the duration preferred for each output file.
 
-This is mainly for saving long streams on slow systems. On some slower machines dumping a large cache can bog things down quite a bit until the writing stops, so this allows you to dump the cache periodically according to the time set in autoend.
+This could also be helpful for saving long streams on slow systems. On some slower machines dumping a large cache or writing out a large file can bog things down quite a bit until the writing stops, so this allows you to dump the cache periodically according to the time set in autoend.
 
-This feature requires `autostart=yes`.
+This feature also requires `autostart=yes`. Since this is based on start and stop cycles of continuous writing rather than dumping the loaded cache at regular intervals it is not necessary to have a large cache size.
 
 ----
 
 `seamless=yes` will prevent the stream from reloading on host changes until the playback time has reached the end of the current cache.
 
-This suboption of the hostchange feature is meant to be used if you're simultaneously watching the stream.
+This suboption of the `hostchange` feature is meant to be used if you're simultaneously watching the stream.
 Otherwise, if you're automating the stream saving without watching it's recommended to keep this option disabled so that the reset happens immediately.
