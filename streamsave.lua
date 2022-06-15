@@ -165,9 +165,6 @@ local cache = {
 local convert_time
 local observe_cache
 local title_change
-local file_format
-local audio
-local video
 local container
 local chapter_list = {} -- initial chapter list
 local ab_chapters = {}  -- A-B loop point chapters
@@ -232,7 +229,7 @@ local function update_opts(changed)
     if opts.force_extension ~= "no" then
         file.ext = opts.force_extension
     elseif changed["force_extension"] then
-        container(audio, video, file_format, true)
+        container(_, _, true)
     end
     if changed["range_marks"] then
         if opts.range_marks then
@@ -303,12 +300,12 @@ function title_change(name, media_title, req)
 end
 
 -- Determine container for standard formats
-function container(a, v, f, req)
-    audio = a
-    video = v
-    file_format = f
+function container(_, _, req)
     cache.prior = 0
     cache.part = 0
+    local audio = mp.get_property("audio-codec-name")
+    local video = mp.get_property("video-format")
+    local file_format = mp.get_property("file-format")
     cache.dumped = false
     if not file_format then
         return end
@@ -336,7 +333,7 @@ local function format_override(ext)
     ext = ext or file.ext
     file.oldext = file.oldext or file.ext
     if ext == "revert" and file.ext == opts.force_extension then
-        container(audio, video, file_format, true)
+        container(_, _, true)
     elseif ext == "revert" and opts.force_extension ~= "no" then
         file.ext = opts.force_extension
     elseif ext == "revert" then
@@ -740,15 +737,9 @@ mp.observe_property("media-title", "string", title_change)
 --[[ video and audio formats observed in order to handle track changes
 useful if e.g. --script-opts=ytdl_hook-all_formats=yes
 or script-opts=ytdl_hook-use_manifests=yes ]]
-mp.observe_property("file-format", "string",
-                    function(_, f) container(audio, video, f)
-                    end)
-mp.observe_property("video-format", "string",
-                    function(_, v) container(audio, v, file_format)
-                    end)
-mp.observe_property("audio-codec-name", "string",
-                    function(_, a) container(a, video, file_format)
-                    end)
+mp.observe_property("audio-codec-name", "string", container)
+mp.observe_property("video-format", "string", container)
+mp.observe_property("file-format", "string", container)
 
 --[[ Loading chapters can be slow especially if they're passed from
 an external file, so make sure existing chapters are not overwritten
