@@ -156,21 +156,27 @@ local loop = {
 }
 
 local cache = {
-    dumped,    -- whether the current cache has been written
+    dumped,    -- autowrite cache state (serves as an autowrite request)
     observed,  -- whether the cache time is being observed
     endsec,    -- user specified autoend cache time in seconds
     prior,     -- previous cache time
     seekend,   -- seekable cache end timestamp
     part,      -- approx. end time of last piece / start time of next piece
+    switch,    -- request to observe track switches and seeking
+    use,       -- use cache_time instead of seekend for initial piece on switches
 }
 
 local convert_time
 local observe_cache
+local reset
 local title_change
 local container
 local chapter_list = {} -- initial chapter list
 local ab_chapters = {}  -- A-B loop point chapters
 local chapter_points
+local get_seekable_cache
+local seamless_reload
+local automatic
 local quitseconds
 local quit_timer
 local autoquit
@@ -201,8 +207,10 @@ local function validate_opts()
         opts.dump_mode = "ab"
     end
     if opts.autoend ~= "no" then
-        cache.endsec = convert_time(opts.autoend)
-        if not cache.endsec then
+        if not cache.part then
+            cache.endsec = convert_time(opts.autoend)
+        end
+        if not convert_time(opts.autoend) then
             msg.warn("Invalid autoend value '" .. opts.autoend ..
                      "'. Use HH:MM:SS format.")
             opts.autoend = "no"
@@ -253,6 +261,8 @@ local function update_opts(changed)
     end
     if changed["piecewise"] and not opts.piecewise then
         cache.part = 0
+    elseif changed["piecewise"] then
+        cache.endsec = convert_time(opts.autoend)
     end
 end
 
@@ -289,7 +299,7 @@ local function mode_switch(value)
 end
 
 -- Set the principal part of the file name using the media title
-function title_change(name, media_title, req)
+function title_change(_, media_title, req)
     if opts.force_title ~= "no" and not req then
         file.title = opts.force_title
         return end
@@ -303,13 +313,11 @@ end
 
 -- Determine container for standard formats
 function container(_, _, req)
-    cache.prior = 0
-    cache.part = 0
     local audio = mp.get_property("audio-codec-name")
     local video = mp.get_property("video-format")
     local file_format = mp.get_property("file-format")
-    cache.dumped = false
     if not file_format then
+        reset()
         return end
     if opts.force_extension ~= "no" and not req then
         file.ext = opts.force_extension
@@ -402,22 +410,24 @@ local function marks_override(value)
 end
 
 local function autostart_override(value)
+    if value and value ~= "no" and value ~= "yes" then
+        msg.warn("Invalid input '" .. value .. "'. Use yes or no.")
+        mp.osd_message("streamsave: invalid input; use yes or no")
+        return
+    end
     if not value or value == "no" then
         opts.autostart = false
         print("Autostart disabled")
         mp.osd_message("streamsave: autostart disabled")
     elseif value == "yes" then
         opts.autostart = true
-        observe_cache()
         print("Autostart enabled")
         mp.osd_message("streamsave: autostart enabled")
-    else
-        msg.warn("Invalid input '" .. value .. "'. Use yes or no.")
-        mp.osd_message("streamsave: invalid input; use yes or no")
     end
+    observe_cache()
 end
 
-local function end_override(value)
+local function autoend_override(value)
     opts.autoend = value or opts.autoend
     validate_opts()
     cache.endsec = convert_time(opts.autoend)
@@ -460,6 +470,7 @@ local function piecewise_override(value)
         mp.osd_message("streamsave: piecewise dumping disabled")
     elseif value == "yes" then
         opts.piecewise = true
+        cache.endsec = convert_time(opts.autoend)
         print("Piecewise dumping enabled")
         mp.osd_message("streamsave: piecewise dumping enabled")
     else
@@ -471,6 +482,7 @@ end
 local function seamless_override(value)
     if not value or value == "no" then
         opts.seamless = false
+        mp.unobserve_property(seamless_reload)
         print("Seamless host change reloading disabled")
         mp.osd_message("streamsave: seamless disabled")
     elseif value == "yes" then
@@ -552,8 +564,8 @@ local function cache_write(mode)
         if opts.output_label == "increment" then
             file.inc = file.inc + 1
         end
-        cache.dumped = true
     end
+    return true
 end
 
 --[[ This command attempts to align the A-B loop points to keyframes.
@@ -624,14 +636,44 @@ function chapter_points()
 end
 
 -- stops writing the file
-local function stop()
+local function stop(state)
+    if state == false
+       or state and not mp.get_property_native("demuxer-cache-state")
+    then return end
     mp.commandv("async", "osd-msg", "dump-cache", "0", "no", "")
 end
 
-local function get_seekable_cache()
+function reset()
+    if cache.observed or cache.dumped then
+        stop(cache.dumped)
+        mp.unobserve_property(automatic)
+        mp.unobserve_property(seamless_reload)
+        mp.unobserve_property(get_seekable_cache)
+        cache.endsec = convert_time(opts.autoend)
+        cache.observed = false
+    end
+    cache.prior = 0
+    cache.part = 0
+    cache.dumped = false
+    cache.switch = true
+end
+reset()
+
+function get_seekable_cache(prop, range_check)
     -- use the seekable part of the cache for more accurate timestamps
     local cache_state = mp.get_property_native("demuxer-cache-state", {})
     local seekable_ranges = cache_state["seekable-ranges"] or {}
+    if prop then
+        if range_check ~= false and
+           (#seekable_ranges == 0
+            or not mp.get_property_number("demuxer-cache-time"))
+        then
+            reset()
+            cache.use = opts.piecewise
+            observe_cache()
+        end
+        return
+    end
     local seekable_ends = {0}
     for i, range in ipairs(seekable_ranges) do
         seekable_ends[i] = range["end"] or 0
@@ -640,46 +682,66 @@ local function get_seekable_cache()
     return cache.seekend
 end
 
-local function seamless_reset(_, play_time)
+function seamless_reload(_, play_time)
     if not play_time or play_time == 0 or play_time >= cache.seekend then
-        mp.unobserve_property(seamless_reset)
-        cache.prior = 0
+        reset()
         mp.command("playlist-play-index current")
     end
 end
 
-local function automatic(_, cache_time)
+function automatic(_, cache_time)
     if opts.hostchange and cache.prior ~= 0
        and (not cache_time or math.abs(cache_time - cache.prior) > 300)
+       and not mp.get_property_bool("seeking")
     then
         if opts.seamless then
+            reset()
+            cache.observed = true
             get_seekable_cache()
-            if cache.dumped then
-                stop()
-            end
-            mp.unobserve_property(automatic)
-            mp.observe_property("playback-time", "number", seamless_reset)
+            mp.observe_property("playback-time", "number", seamless_reload)
         else
             -- reload stream
-            cache.prior = 0
+            reset()
             mp.command("playlist-play-index current")
         end
         return
     elseif not cache_time then
+        reset()
+        cache.use = opts.piecewise
+        observe_cache()
         return
     end
     -- cache write according to automatic options
-    if opts.autostart and not cache.dumped then
+    if opts.autostart and not cache.dumped
+       and (not cache.endsec or cache_time < cache.endsec
+            or opts.piecewise)
+    then
         if opts.piecewise and cache.part ~= 0 then
-            cache_write("ab")
+            cache.dumped = cache_write("ab")
         else
-            cache_write("continuous")
+            cache.dumped = cache_write("continuous")
+            -- update the piece time if there's a track/seeking reset
+            cache.part = cache.use and cache.dumped and cache_time or 0
+            cache.use = cache.use and cache.part == 0
         end
     end
+    -- the seekable ranges update slowly, which is why they're used to check
+    -- against switches for increased certainty, but this means the switch properties
+    -- should be watched only when the ranges exist
+    if cache.switch and get_seekable_cache() ~= 0 then
+        cache.switch = false
+        mp.observe_property("current-tracks/audio/id", "number", get_seekable_cache)
+        mp.observe_property("current-tracks/video/id", "number", get_seekable_cache)
+        mp.observe_property("seeking", "bool", get_seekable_cache)
+    end
     -- unobserve cache time if not needed
-    if cache.dumped and not cache.endsec and not opts.hostchange then
+    if cache.dumped and not cache.switch
+       and not cache.endsec and not opts.hostchange
+    then
         mp.unobserve_property(automatic)
         cache.observed = false
+        cache.prior = 0
+        return
     end
     -- stop cache dump
     if cache.endsec and cache.dumped and
@@ -694,8 +756,7 @@ local function automatic(_, cache_time)
             align_cache()
             cache.dumped = false
         else
-            mp.unobserve_property(automatic)
-            cache.observed = false
+            cache.endsec = nil
         end
         stop()
     end
@@ -710,6 +771,7 @@ function autoquit()
     elseif not quit_timer then
         quit_timer = mp.add_timeout(quitseconds,
             function()
+                stop(cache.dumped)
                 mp.command("quit")
                 print("Quit after " .. opts.quit)
             end)
@@ -728,9 +790,8 @@ function observe_cache()
     if not cache.observed and obs_xyz and network then
         mp.observe_property("demuxer-cache-time", "number", automatic)
         cache.observed = true
-    elseif cache.observed and (not obs_xyz or not network) then
-        mp.unobserve_property(automatic)
-        cache.observed = false
+    elseif (cache.observed or cache.dumped) and (not obs_xyz or not network) then
+        reset()
     end
 end
 
@@ -759,7 +820,7 @@ mp.register_script_message("streamsave-path", path_override)
 mp.register_script_message("streamsave-label", label_override)
 mp.register_script_message("streamsave-marks", marks_override)
 mp.register_script_message("streamsave-autostart", autostart_override)
-mp.register_script_message("streamsave-autoend", end_override)
+mp.register_script_message("streamsave-autoend", autoend_override)
 mp.register_script_message("streamsave-hostchange", hostchange_override)
 mp.register_script_message("streamsave-quit", quit_override)
 mp.register_script_message("streamsave-piecewise", piecewise_override)
