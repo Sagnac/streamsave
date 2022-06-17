@@ -559,16 +559,14 @@ Use align-cache if you want to know which range will likely be dumped.
 Keep in mind this changes the A-B loop points you've set.
 This is sometimes inaccurate. Calling align_cache() again will reset the points
 to their initial values. ]]
-local function align_cache(auto)
+local function align_cache()
     if not loop.aligned then
         range_flip()
         loop.a_revert = loop.a
         loop.b_revert = loop.b
-        mp.commandv("osd-msg", "ab-loop-align-cache")
-        if not auto then
-            loop.aligned = true
-            print("Adjusted range: " .. loop_range())
-        end
+        mp.command("ab-loop-align-cache")
+        loop.aligned = true
+        print("Adjusted range: " .. loop_range())
     else
         mp.set_property_native("ab-loop-a", loop.a_revert)
         mp.set_property_native("ab-loop-b", loop.b_revert)
@@ -689,7 +687,7 @@ local function automatic(_, cache_time)
             mp.set_property("ab-loop-b", "no")
             -- try and make the next piece start on the final keyframe of this piece
             loop.aligned = false
-            align_cache(true)
+            align_cache()
             cache.dumped = false
         else
             mp.unobserve_property(automatic)
