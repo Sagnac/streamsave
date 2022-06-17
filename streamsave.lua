@@ -115,6 +115,8 @@ local options = require 'mp.options'
 local utils = require 'mp.utils'
 local msg = require 'mp.msg'
 
+local unpack = unpack or table.unpack
+
 -- default user options
 -- change these in streamsave.conf
 local opts = {
@@ -629,10 +631,12 @@ end
 local function get_seekable_cache()
     -- use the seekable part of the cache for more accurate timestamps
     local cache_state = mp.get_property_native("demuxer-cache-state", {})
-    local seekable = cache_state["seekable-ranges"]
-    local seekable_index = seekable and seekable[#seekable]
-    local cache_end = seekable_index and seekable_index["end"]
-    cache.seekend = cache_end or 0
+    local seekable_ranges = cache_state["seekable-ranges"] or {}
+    local seekable_ends = {0}
+    for i, range in ipairs(seekable_ranges) do
+        seekable_ends[i] = range["end"] or 0
+    end
+    cache.seekend = math.max(0, unpack(seekable_ends))
     return cache.seekend
 end
 
