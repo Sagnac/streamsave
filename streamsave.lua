@@ -29,6 +29,8 @@ Options are specified in ~~/script-opts/streamsave.conf
 Runtime changes to all user options are supported via the `script-opts` property by using mpv's `set` or
 `change-list` input commands and the `streamsave-` prefix.
 
+General Options:
+
 save_directory sets the output file directory. Don't use quote marks or a trailing slash when specifying paths here.
 Example: save_directory=C:\User Directory
 mpv double tilde paths ~~/ and home path shortcuts ~/ are also accepted.
@@ -75,6 +77,8 @@ Once the A-B points are cleared the original chapters are restored.
 Any chapters added after A-B mode is entered are added to the initial chapter list.
 This option is disabled by default; set range_marks=yes in streamsave.conf in order to enable it.
 
+Automation Options:
+
 The autostart and autoend options are used for automated stream capturing.
 Set autostart=yes if you want the script to trigger cache writing immediately on stream load.
 Set autoend to a time format of the form HH:MM:SS (e.g. autoend=01:20:08) if you want the file writing
@@ -91,10 +95,6 @@ Running `script-message streamsave-quit HH:MM:SS` at runtime will reset and rest
 Set piecewise=yes if you want to save a stream in parts automatically, useful for
 e.g. saving long streams on slow systems. Set autoend to the duration preferred for each output file.
 This feature requires autostart=yes.
-
-seamless=yes will prevent the stream from reloading on host changes until the playback time has reached
-the end of the current cache.
-This suboption of the hostchange feature is meant to be used if you're simultaneously watching the stream.
 
 mpv's script-message command can be used at runtime to set the dump mode, override the output title
 or file extension, change the save directory, or switch the output label.
@@ -157,15 +157,15 @@ local loop = {
 }
 
 local cache = {
-    dumped,    -- autowrite cache state (serves as an autowrite request)
-    observed,  -- whether the cache time is being observed
-    endsec,    -- user specified autoend cache time in seconds
-    prior,     -- previous cache time
-    seekend,   -- seekable cache end timestamp
-    part,      -- approx. end time of last piece / start time of next piece
-    switch,    -- request to observe track switches and seeking
-    use,       -- use cache_time instead of seekend for initial piece on switches
-    restart,   -- hostchange interval where subsequent reloads are immediate
+    dumped,          -- autowrite cache state (serves as an autowrite request)
+    observed,        -- whether the cache time is being observed
+    endsec,          -- user specified autoend cache time in seconds
+    prior,           -- previous cache time
+    seekend,         -- seekable cache end timestamp
+    part,            -- approx. end time of last piece / start time of next piece
+    switch,          -- request to observe track switches and seeking
+    use,             -- use cache_time instead of seekend for initial piece
+    restart,         -- hostchange interval where subsequent reloads are immediate
 }
 
 local convert_time

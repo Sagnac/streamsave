@@ -149,7 +149,7 @@ The `hostchange=yes` option enables an experimental workaround for DAI HLS .m3u8
 
 The `autostart` option must also be enabled in order to autosave these types of streams.
 
-Seeking outside of the cache on normal videos with this option enabled is not supported.
+This feature accepts associated `script-message` arguments of `yes`, `no`, and `cycle` which cycles between the first two.
 
 See [`6d5c0e0`](https://github.com/Sagnac/streamsave/commit/6d5c0e04472bd04ad91b5148fb0d9ad5bd9bbb72 "streamsave commit 6d5c0e0") for more info.
 
@@ -157,7 +157,7 @@ See [`6d5c0e0`](https://github.com/Sagnac/streamsave/commit/6d5c0e04472bd04ad91b
 
 The `quit=HH:MM:SS` option will set a one shot quit timer at script load, serving as a replacement for `autoend` when using `hostchange`; once the specified time has elapsed the player will exit.
 
-Both of these features have associated `script-message` commands. Running `script-message streamsave-quit HH:MM:SS` at runtime will reset the timer to the specified duration and restart it from the point of input; it can also be disabled entirely by passing `no`. `hostchange` accepts either `yes` or `no`.
+Running `script-message streamsave-quit HH:MM:SS` at runtime will reset the timer to the specified duration and restart it from the point of input; it can also be disabled entirely by passing `no`.
 
 ----
 
@@ -168,10 +168,3 @@ This option must be used with `autoend` which controls the piece size; set `auto
 This could also be helpful for saving long streams on slow systems. On some slower machines dumping a large cache or writing out a large file can bog things down quite a bit until the writing stops, so this allows you to dump the cache periodically according to the time set in autoend.
 
 This feature also requires `autostart=yes`. Since this is based on start and stop cycles of continuous writing rather than dumping the loaded cache at regular intervals it is not necessary to have a large cache size.
-
-----
-
-`seamless=yes` will prevent the stream from reloading on host changes until the playback time has reached the end of the current cache.
-
-This suboption of the `hostchange` feature is meant to be used if you're simultaneously watching the stream.
-Otherwise, if you're automating the stream saving without watching it's recommended to keep this option disabled so that the reset happens immediately.
