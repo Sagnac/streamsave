@@ -141,6 +141,8 @@ local file = {
     title,           -- media title
     inc,             -- filename increments
     ext,             -- file extension
+    pending,         -- number of files pending write completion (max 2)
+    queue,           -- cache_write queue in case of multiple write requests
     oldtitle,        -- initialized if title is overridden, allows revert
     oldext,          -- initialized if format is overridden, allows revert
     oldpath,         -- initialized if directory is overriden, allows revert
@@ -168,6 +170,8 @@ local cache = {
 
 local convert_time
 local observe_cache
+local continuous
+local write_file
 local reset
 local title_change
 local container
@@ -535,8 +539,33 @@ local function range_stamp(mode)
     end
 end
 
-local function cache_write(mode)
+local function write_set(mode, file_name, file_pos, quiet)
+    local command = {
+        _flags = {
+            (not quiet or nil) and "osd-msg",
+        },
+        filename = file_name,
+    }
+    if mode == "ab" then
+        command["name"] = "ab-loop-dump-cache"
+    else
+        command["name"] = "dump-cache"
+        command["start"] = 0
+        command["end"] = file_pos or "no"
+    end
+    return command
+end
+
+local function cache_write(mode, quiet)
     if not (file.title and file.ext) then
+        return end
+    if file.pending == 2 then
+        file.queue = file.queue or {}
+        -- honor extra write requests when pending queue is full
+        -- but limit number of outstanding write requests to be fulfilled
+        if #file.queue < 10 then
+            table.insert(file.queue, {mode, quiet})
+        end
         return end
     range_flip()
     -- evaluate tagging conditions and set file name
@@ -550,21 +579,40 @@ local function cache_write(mode)
         file.name = file.path .. "/" .. file.title .. file.ext
     end
     -- dump cache according to mode
-    if mode == "ab" then
-        mp.commandv("async", "osd-msg", "ab-loop-dump-cache", file.name)
-    elseif mode == "current" then
-        local file_pos = mp.get_property_number("playback-time", 0)
-        mp.commandv("async", "osd-msg", "dump-cache", "0", file_pos, file.name)
-    elseif mode == "continuous" then
-        mp.commandv("async", "osd-msg", "dump-cache", "0", "no", file.name)
+    local file_pos
+    local file_name = file.name -- scope reduction so callback verifies correct file
+    file.pending = (file.pending or 0) + 1
+    continuous = mode == "continuous" or loop.a and not loop.b
+    if mode == "current" then
+        file_pos = mp.get_property_number("playback-time", 0)
+    elseif continuous and file.pending == 1 then
+        print("Dumping cache continuously to:" .. file_name)
     end
-    -- check if file is written
-    if utils.file_info(file.name) then
-        print("Cache dumped to " .. file.name)
-        if opts.output_label == "increment" then
-            file.inc = file.inc + 1
+    write_file = mp.command_native_async (
+        write_set(mode, file_name, file_pos, quiet),
+        function(success, _, command_error)
+            command_error = command_error and msg.error(command_error)
+            -- check if file is written
+            if utils.file_info(file_name) then
+                if success then
+                    print("Finished writing cache to:" .. file_name)
+                else
+                    msg.warn("Possibly broken file created at:" .. file_name)
+                end
+            else
+                msg.error("File not written.")
+            end
+            if continuous and file.pending == 2 then
+                print("Dumping cache continuously to:" .. file.name)
+            end
+            file.pending = file.pending - 1
+            -- fulfil any write requests now that the pending queue has been serviced
+            if file.queue and #file.queue > 0 then
+                cache_write(file.queue[1][1], file.queue[1][2])
+                table.remove(file.queue, 1)
+            end
         end
-    end
+    )
     return true
 end
 
@@ -636,16 +684,13 @@ function chapter_points()
 end
 
 -- stops writing the file
-local function stop(state)
-    if state == false
-       or state and not mp.get_property_native("demuxer-cache-state")
-    then return end
-    mp.commandv("async", "osd-msg", "dump-cache", "0", "no", "")
+local function stop()
+    mp.abort_async_command(write_file or {})
 end
 
 function reset()
     if cache.observed or cache.dumped then
-        stop(cache.dumped)
+        stop()
         mp.unobserve_property(automatic)
         mp.unobserve_property(seamless_reload)
         mp.unobserve_property(get_seekable_cache)
@@ -719,7 +764,7 @@ function automatic(_, cache_time)
         if opts.piecewise and cache.part ~= 0 then
             cache.dumped = cache_write("ab")
         else
-            cache.dumped = cache_write("continuous")
+            cache.dumped = cache_write("continuous", opts.hostchange)
             -- update the piece time if there's a track/seeking reset
             cache.part = cache.use and cache.dumped and cache_time or 0
             cache.use = cache.use and cache.part == 0
@@ -771,7 +816,7 @@ function autoquit()
     elseif not quit_timer then
         quit_timer = mp.add_timeout(quitseconds,
             function()
-                stop(cache.dumped)
+                stop()
                 mp.command("quit")
                 print("Quit after " .. opts.quit)
             end)
