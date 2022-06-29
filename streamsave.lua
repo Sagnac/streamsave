@@ -131,7 +131,6 @@ local opts = {
     hostchange = false,             -- <yes|no> use if the host changes mid stream
     quit = "no",                    -- <no|HH:MM:SS> quits player at specified time
     piecewise = false,              -- <yes|no> writes stream in parts with autoend
-    seamless = false,               -- <yes|no> hostch.: reload only at playback ends
 }
 
 -- for internal use
@@ -166,6 +165,7 @@ local cache = {
     part,      -- approx. end time of last piece / start time of next piece
     switch,    -- request to observe track switches and seeking
     use,       -- use cache_time instead of seekend for initial piece on switches
+    restart,   -- hostchange interval where subsequent reloads are immediate
 }
 
 local convert_time
@@ -179,7 +179,7 @@ local chapter_list = {} -- initial chapter list
 local ab_chapters = {}  -- A-B loop point chapters
 local chapter_points
 local get_seekable_cache
-local seamless_reload
+local reload
 local automatic
 local quitseconds
 local quit_timer
@@ -448,6 +448,7 @@ local function hostchange_override(value)
     end
     if not value or value == "no" then
         opts.hostchange = false
+        mp.unobserve_property(reload)
         print("Hostchange disabled")
         mp.osd_message("streamsave: hostchange disabled")
     elseif value == "yes" then
@@ -477,22 +478,6 @@ local function piecewise_override(value)
         cache.endsec = convert_time(opts.autoend)
         print("Piecewise dumping enabled")
         mp.osd_message("streamsave: piecewise dumping enabled")
-    else
-        msg.warn("Invalid input '" .. value .. "'. Use yes or no.")
-        mp.osd_message("streamsave: invalid input; use yes or no")
-    end
-end
-
-local function seamless_override(value)
-    if not value or value == "no" then
-        opts.seamless = false
-        mp.unobserve_property(seamless_reload)
-        print("Seamless host change reloading disabled")
-        mp.osd_message("streamsave: seamless disabled")
-    elseif value == "yes" then
-        opts.seamless = true
-        print("Seamless host change reloading enabled")
-        mp.osd_message("streamsave: seamless enabled")
     else
         msg.warn("Invalid input '" .. value .. "'. Use yes or no.")
         mp.osd_message("streamsave: invalid input; use yes or no")
@@ -692,7 +677,7 @@ function reset()
     if cache.observed or cache.dumped then
         stop()
         mp.unobserve_property(automatic)
-        mp.unobserve_property(seamless_reload)
+        mp.unobserve_property(reload)
         mp.unobserve_property(get_seekable_cache)
         cache.endsec = convert_time(opts.autoend)
         cache.observed = false
@@ -704,9 +689,12 @@ function reset()
 end
 reset()
 
-function get_seekable_cache(prop, range_check)
+function get_seekable_cache(prop, range_check, underrun)
     -- use the seekable part of the cache for more accurate timestamps
     local cache_state = mp.get_property_native("demuxer-cache-state", {})
+    if underrun then
+        return cache_state["underrun"]
+    end
     local seekable_ranges = cache_state["seekable-ranges"] or {}
     if prop then
         if range_check ~= false and
@@ -727,23 +715,31 @@ function get_seekable_cache(prop, range_check)
     return cache.seekend
 end
 
-function seamless_reload(_, play_time)
-    if not play_time or play_time == 0 or play_time >= cache.seekend then
+function reload(_, play_time)
+    local cache_duration = mp.get_property_number("demuxer-cache-duration")
+    if play_time and play_time >= cache.seekend - 0.25
+       or cache_duration and math.abs(cache.prior - cache_duration) > 4800
+       or get_seekable_cache(_, _, true)
+    then
         reset()
+        cache.restart = cache.restart or mp.add_timeout(500, function() end)
+        cache.restart:resume()
         mp.command("playlist-play-index current")
     end
 end
 
 function automatic(_, cache_time)
     if opts.hostchange and cache.prior ~= 0
-       and (not cache_time or math.abs(cache_time - cache.prior) > 300)
+       and (not cache_time or math.abs(cache_time - cache.prior) > 300
+            or mp.get_property_number("demuxer-cache-duration", 0) > 11000)
        and not mp.get_property_bool("seeking")
     then
-        if opts.seamless then
+        if not cache.restart or not cache.restart:is_enabled() then
             reset()
             cache.observed = true
+            cache.prior = mp.get_property_number("demuxer-cache-duration", 0)
             get_seekable_cache()
-            mp.observe_property("playback-time", "number", seamless_reload)
+            mp.observe_property("playback-time", "number", reload)
         else
             -- reload stream
             reset()
@@ -869,7 +865,6 @@ mp.register_script_message("streamsave-autoend", autoend_override)
 mp.register_script_message("streamsave-hostchange", hostchange_override)
 mp.register_script_message("streamsave-quit", quit_override)
 mp.register_script_message("streamsave-piecewise", piecewise_override)
-mp.register_script_message("streamsave-seamless", seamless_override)
 
 mp.add_key_binding("Alt+z", "mode-switch", function() mode_switch("cycle") end)
 mp.add_key_binding("Ctrl+x", "stop-cache-write", stop)
