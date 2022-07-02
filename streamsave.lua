@@ -441,6 +441,7 @@ local function autoend_override(value)
 end
 
 local function hostchange_override(value)
+    value = value == "cycle" and (not opts.hostchange and "yes" or "no") or value
     if value and value ~= "no" and value ~= "yes" then
         msg.warn("Invalid input '" .. value .. "'. Use yes or no.")
         mp.osd_message("streamsave: invalid input; use yes or no")
