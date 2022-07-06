@@ -644,10 +644,10 @@ function chapter_points()
     ab_chapters = {}
     -- restore original chapter list if A-B points are cleared
     -- otherwise set chapters to A-B points
-    if loop_range() == "no - no" then
+    range_flip()
+    if not loop.a and not loop.b then
         mp.set_property_native("chapter-list", chapter_list)
     else
-        range_flip()
         if loop.a then
             ab_chapters[1] = {
                 title = "A loop point",
