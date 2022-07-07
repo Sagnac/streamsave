@@ -389,6 +389,17 @@ local function path_override(value)
 end
 
 local function label_override(value)
+    if value == "cycle" then
+        if opts.output_label == "increment" then
+            value = "range"
+        elseif opts.output_label == "range" then
+            value = "timestamp"
+        elseif opts.output_label == "timestamp" then
+            value = "overwrite"
+        else
+            value = "increment"
+        end
+    end
     opts.output_label = value or opts.output_label
     validate_opts()
     print("File label changed to " .. opts.output_label)
