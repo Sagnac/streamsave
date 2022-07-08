@@ -236,7 +236,6 @@ local function update_opts(changed)
     file.path = mp.command_native({"expand-path", opts.save_directory})
     if opts.force_title ~= "no" then
         file.title = opts.force_title
-        file.inc = file.inc or 1
     elseif changed["force_title"] then
         title_change(_, mp.get_property("media-title"), true)
     end
@@ -310,7 +309,6 @@ function title_change(_, media_title, req)
     if media_title then
         -- Replacement of reserved file name characters on Windows
         file.title = media_title:gsub("[\\/:*?\"<>|]", ".")
-        file.inc = 1
         file.oldtitle = nil
     end
 end
@@ -513,27 +511,35 @@ local function loop_range()
     return loop.range
 end
 
+local function set_name(label)
+    return file.path .. "/" .. file.title .. label .. file.ext
+end
+
 local function increment_filename()
-    file.name = file.path .. "/" .. file.title .. -file.inc .. file.ext
+    if set_name(-(file.inc or 1)) ~= file.name then
+        file.inc = 1
+        file.name = set_name(-file.inc)
+    end
     -- check if file exists
     while utils.file_info(file.name) do
         file.inc = file.inc + 1
-        file.name = file.path .. "/" .. file.title .. -file.inc .. file.ext
+        file.name = set_name(-file.inc)
     end
 end
 
 local function range_stamp(mode)
+    local file_range
     if mode == "ab" then
-        local file_range = "-[" .. loop_range():gsub(":", ".") .. "]"
-        file.name = file.path .. "/" .. file.title .. file_range .. file.ext
+        file_range = "-[" .. loop_range():gsub(":", ".") .. "]"
     elseif mode == "current" then
         local file_pos = mp.get_property_osd("playback-time", "0")
-        local file_range = "-[" .. 0 .. " - " .. file_pos:gsub(":", ".") .. "]"
-        file.name = file.path .. "/" .. file.title .. file_range .. file.ext
+        file_range = "-[" .. 0 .. " - " .. file_pos:gsub(":", ".") .. "]"
     else
         -- range tag is incompatible with full dump, fallback to increments
         increment_filename()
+        return
     end
+    file.name = set_name(file_range)
 end
 
 local function write_set(mode, file_name, file_pos, quiet)
@@ -571,9 +577,9 @@ local function cache_write(mode, quiet)
     elseif opts.output_label == "range" then
         range_stamp(mode)
     elseif opts.output_label == "timestamp" then
-        file.name = file.path .. "/" .. file.title .. -os.time() .. file.ext
+        file.name = set_name(-os.time())
     elseif opts.output_label == "overwrite" then
-        file.name = file.path .. "/" .. file.title .. file.ext
+        file.name = set_name("")
     end
     -- dump cache according to mode
     local file_pos
