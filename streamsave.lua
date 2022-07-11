@@ -737,7 +737,7 @@ function reload(_, play_time)
     local cache_duration = mp.get_property_number("demuxer-cache-duration")
     if play_time and play_time >= cache.seekend - 0.25
        or cache_duration and math.abs(cache.prior - cache_duration) > 4800
-       or get_seekable_cache(_, _, true)
+       or get_seekable_cache(nil, false, true)
     then
         reset()
         cache.restart = cache.restart or mp.add_timeout(500, function() end)
