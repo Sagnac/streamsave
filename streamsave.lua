@@ -742,6 +742,7 @@ function reload(_, play_time)
         reset()
         cache.restart = cache.restart or mp.add_timeout(500, function() end)
         cache.restart:resume()
+        msg.warn("Reloading stream due to host change.")
         mp.command("playlist-play-index current")
     end
 end
@@ -761,6 +762,7 @@ function automatic(_, cache_time)
         else
             -- reload stream
             reset()
+            msg.warn("Reloading stream due to host change.")
             mp.command("playlist-play-index current")
         end
         return
