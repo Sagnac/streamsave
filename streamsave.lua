@@ -540,6 +540,12 @@ local function range_stamp(mode)
         return
     end
     file.name = set_name(file_range)
+    -- check if file exists, append increments if so
+    local i = 1
+    while utils.file_info(file.name) do
+        i = i + 1
+        file.name = set_name(file_range .. -i)
+    end
 end
 
 local function write_set(mode, file_name, file_pos, quiet)
