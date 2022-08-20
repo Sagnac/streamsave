@@ -459,6 +459,7 @@ local function hostchange_override(value)
     if not value or value == "no" then
         opts.hostchange = false
         mp.unobserve_property(reload)
+        local timer = cache.restart and cache.restart:kill()
         print("Hostchange disabled")
         mp.osd_message("streamsave: hostchange disabled")
     elseif value == "yes" then
