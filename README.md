@@ -71,7 +71,7 @@ mpv double tilde paths `~~/` and home path shortcuts `~/` are also accepted. By 
 
 `dump_mode=continuous` will use dump-cache, setting the initial timestamp to 0 and leaving the end timestamp unset.
 
-Use this mode if you want to dump the entire cache.</br>
+Use this mode if you want to dump the entire cache.<br>
 This process will continue as packets are read and until the streams change, the player is closed, or the user presses the stop keybind.
 
 Under this mode pressing the cache-write keybind again will stop writing the first file and initiate another file starting at 0 and continuing as the cache increases.
@@ -98,7 +98,7 @@ There are 3 other choices:
 
 The `force_extension` option allows you to force a preferred format and sidestep the automatic detection.
 
-If using this option it is recommended that a highly flexible container is used (e.g. Matroska).</br>
+If using this option it is recommended that a highly flexible container is used (e.g. Matroska).<br>
 The format is specified as the extension including the dot (e.g. `force_extension=.mkv`).
 
 If this option is set, `script-message streamsave-extension revert` will run the automatic determination at runtime; running this command again will reset the extension to what's specified in `force_extension`.
