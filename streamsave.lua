@@ -724,7 +724,7 @@ function get_seekable_cache(prop, range_check, underrun)
     if prop then
         if range_check ~= false and
            (#seekable_ranges == 0
-            or not mp.get_property_number("demuxer-cache-time"))
+            or not cache_state["cache-end"])
         then
             reset()
             cache.use = opts.piecewise
