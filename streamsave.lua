@@ -126,6 +126,7 @@ local opts = {
     force_extension = "no",         -- <no|.ext> extension will be .ext if set
     force_title = "no",             -- <no|title> custom title used for the filename
     range_marks = false,            -- <yes|no> set chapters at A-B loop points?
+    track_packets = false,          -- <yes|no> track HLS packet drops
     autostart = false,              -- <yes|no> automatically dump cache at start?
     autoend = "no",                 -- <no|HH:MM:SS> cache time to stop at
     hostchange = false,             -- <yes|no> use if the host changes mid stream
@@ -177,6 +178,7 @@ local title_change
 local container
 local chapter_list = {} -- initial chapter list
 local ab_chapters = {}  -- A-B loop point chapters
+local get_chapters
 local chapter_points
 local get_seekable_cache
 local reload
@@ -184,6 +186,7 @@ local automatic
 local quitseconds
 local quit_timer
 local autoquit
+local packet_events
 
 function convert_time(value)
     local i, j, H, M, S = value:find("(%d+):(%d+):(%d+)")
@@ -266,6 +269,9 @@ local function update_opts(changed)
         cache.part = 0
     elseif changed["piecewise"] then
         cache.endsec = convert_time(opts.autoend)
+    end
+    if changed["track_packets"] then
+        packet_events(opts.track_packets)
     end
 end
 
@@ -495,6 +501,25 @@ local function piecewise_override(value)
     end
 end
 
+local function packet_override(value)
+    local track_packets = opts.track_packets
+    if not value or value == "no" then
+        opts.track_packets = false
+        print("Track packets disabled")
+        mp.osd_message("streamsave: track packets disabled")
+    elseif value == "yes" then
+        opts.track_packets = true
+        print("Track packets enabled")
+        mp.osd_message("streamsave: track packets enabled")
+    else
+        msg.warn("Invalid input '" .. value .. "'. Use yes or no.")
+        mp.osd_message("streamsave: invalid input; use yes or no")
+    end
+    if opts.track_packets ~= track_packets then
+        packet_events(opts.track_packets)
+    end
+end
+
 local function range_flip()
     loop.a = mp.get_property_number("ab-loop-a")
     loop.b = mp.get_property_number("ab-loop-b")
@@ -648,10 +673,7 @@ local function align_cache()
     end
 end
 
--- creates chapters at A-B loop points
-function chapter_points()
-    if not opts.range_marks then
-        return end
+function get_chapters()
     local current_chapters = mp.get_property_native("chapter-list", {})
     -- make sure master list is up to date
     if current_chapters[1] and
@@ -665,6 +687,13 @@ function chapter_points()
             table.insert(chapter_list, current_chapters[i])
         end
     end
+end
+
+-- creates chapters at A-B loop points
+function chapter_points()
+    if not opts.range_marks then
+        return end
+    get_chapters()
     ab_chapters = {}
     -- restore original chapter list if A-B points are cleared
     -- otherwise set chapters to A-B points
@@ -852,6 +881,43 @@ function autoquit()
 end
 autoquit()
 
+local function fragment_chapters(packets, cache_time)
+    get_chapters()
+    table.insert(chapter_list, {
+        title = packets .. " packet(s) dropped",
+        time = cache_time
+    })
+    if not opts.range_marks or not loop.a and not loop.b then
+        mp.set_property_native("chapter-list", chapter_list)
+    end
+end
+
+local function packet_handler(t)
+    if t.prefix == "ffmpeg/demuxer" then
+        local packets = t.text:match("^hls: skipping (%d+)")
+        if packets then
+            local cache_time = mp.get_property_number("demuxer-cache-time")
+            -- add the chapters on a delay as sometimes they won't set properly
+            -- on packet drops
+            mp.add_timeout(15, function()
+                fragment_chapters(packets, cache_time)
+            end)
+        end
+    end
+end
+
+function packet_events(state)
+    if not state then
+        mp.unregister_event(packet_handler)
+    else
+        mp.enable_messages("warn")
+        mp.register_event("log-message", packet_handler)
+    end
+end
+if opts.track_packets then
+    packet_events(true)
+end
+
 -- cache time observation switch for runtime changes
 function observe_cache()
     local network = mp.get_property_bool("demuxer-via-network")
@@ -893,6 +959,7 @@ mp.register_script_message("streamsave-autoend", autoend_override)
 mp.register_script_message("streamsave-hostchange", hostchange_override)
 mp.register_script_message("streamsave-quit", quit_override)
 mp.register_script_message("streamsave-piecewise", piecewise_override)
+mp.register_script_message("streamsave-packets", packet_override)
 
 mp.add_key_binding("Alt+z", "mode-switch", function() mode_switch("cycle") end)
 mp.add_key_binding("Ctrl+x", "stop-cache-write", stop)
