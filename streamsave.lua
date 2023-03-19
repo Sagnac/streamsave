@@ -141,6 +141,7 @@ local file = {
     title,           -- media title
     inc,             -- filename increments
     ext,             -- file extension
+    loaded,          -- flagged once the initial load has taken place
     pending,         -- number of files pending write completion (max 2)
     queue,           -- cache_write queue in case of multiple write requests
     oldtitle,        -- initialized if title is overridden, allows revert
@@ -1036,8 +1037,13 @@ mp.observe_property("file-format", "string", container)
 an external file, so make sure existing chapters are not overwritten
 by observing A-B loop changes only after the file is loaded. ]]
 local function on_file_load()
-    mp.observe_property("ab-loop-a", "native", chapter_points)
-    mp.observe_property("ab-loop-b", "native", chapter_points)
+    if file.loaded then
+        chapter_points()
+    else
+        mp.observe_property("ab-loop-a", "native", chapter_points)
+        mp.observe_property("ab-loop-b", "native", chapter_points)
+        file.loaded = true
+    end
 end
 mp.register_event("file-loaded", on_file_load)
 
