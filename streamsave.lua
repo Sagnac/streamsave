@@ -121,8 +121,8 @@ local unpack = unpack or table.unpack
 -- change these in streamsave.conf
 local opts = {
     save_directory = [[.]],         -- output file directory
-    dump_mode = "ab",               -- <ab|current|continuous>
-    output_label = "increment",     -- <increment|range|timestamp|overwrite>
+    dump_mode = "ab",               -- <ab|current|continuous|chapter|segments>
+    output_label = "increment",     -- <increment|range|timestamp|overwrite|chapter>
     force_extension = "no",         -- <no|.ext> extension will be .ext if set
     force_title = "no",             -- <no|title> custom title used for the filename
     range_marks = false,            -- <yes|no> set chapters at A-B loop points?
@@ -176,6 +176,7 @@ local write_file
 local reset
 local title_change
 local container
+local segment_list
 local chapter_list = {} -- initial chapter list
 local ab_chapters = {}  -- A-B loop point chapters
 local get_chapters
@@ -201,14 +202,17 @@ local function validate_opts()
     if opts.output_label ~= "increment" and
        opts.output_label ~= "range" and
        opts.output_label ~= "timestamp" and
-       opts.output_label ~= "overwrite"
+       opts.output_label ~= "overwrite" and
+       opts.output_label ~= "chapter"
     then
         msg.warn("Invalid output_label '" .. opts.output_label .. "'")
         opts.output_label = "increment"
     end
     if opts.dump_mode ~= "ab" and
        opts.dump_mode ~= "current" and
-       opts.dump_mode ~= "continuous"
+       opts.dump_mode ~= "continuous" and
+       opts.dump_mode ~= "chapter" and
+       opts.dump_mode ~= "segments"
     then
         msg.warn("Invalid dump_mode '" .. opts.dump_mode .. "'")
         opts.dump_mode = "ab"
@@ -286,6 +290,10 @@ local function mode_switch(value)
             value = "current"
         elseif opts.dump_mode == "current" then
             value = "continuous"
+        elseif opts.dump_mode == "continuous" then
+            value = "chapter"
+        elseif opts.dump_mode == "chapter" then
+            value = "segments"
         else
             value = "ab"
         end
@@ -302,6 +310,14 @@ local function mode_switch(value)
         opts.dump_mode = "current"
         print("Current position mode")
         mp.osd_message("Cache write mode: Current position")
+    elseif value == "chapter" then
+        opts.dump_mode = "chapter"
+        print("Chapter mode (single chapter)")
+        mp.osd_message("Cache write mode: Chapter")
+    elseif value == "segments" then
+        opts.dump_mode = "segments"
+        print("Segments mode (all chapters)")
+        mp.osd_message("Cache write mode: Segments")
     else
         msg.warn("Invalid dump mode '" .. value .. "'")
     end
@@ -400,6 +416,8 @@ local function label_override(value)
             value = "timestamp"
         elseif opts.output_label == "timestamp" then
             value = "overwrite"
+        elseif opts.output_label == "overwrite" then
+            value = "chapter"
         else
             value = "increment"
         end
@@ -574,6 +592,51 @@ local function range_stamp(mode)
     end
 end
 
+local function write_chapter(chapter)
+    get_chapters()
+    if chapter_list[chapter] or chapter == 0 then
+        segment_list = {
+            {
+                ["start"] = chapter == 0 and 0 or chapter_list[chapter]["time"],
+                ["end"] = chapter_list[chapter + 1]
+                          and chapter_list[chapter + 1]["time"]
+                          or mp.get_property_number("duration", "no"),
+                ["title"] = chapter .. ". " .. (chapter ~= 0
+                            and chapter_list[chapter]["title"] or file.title)
+            }
+        }
+        print("Writing chapter " .. chapter .. " ....")
+        return true
+    else
+        msg.error("Chapter not found.")
+    end
+end
+
+local function extract_segments()
+    segment_list = {}
+    for i = 1, #chapter_list - 1 do
+        segment_list[i] = {
+            ["start"] = chapter_list[i]["time"],
+            ["end"] = chapter_list[i + 1]["time"],
+            ["title"] = i .. ". " .. (chapter_list[i]["title"] or file.title)
+        }
+    end
+    if chapter_list[1]["time"] ~= 0 then
+        table.insert(segment_list, 1, {
+            ["start"] = 0,
+            ["end"] = chapter_list[1]["time"],
+            ["title"] = "0. " .. file.title
+        })
+    end
+    table.insert(segment_list, {
+        ["start"] = chapter_list[#chapter_list]["time"],
+        ["end"] = mp.get_property_number("duration", "no"),
+        ["title"] = #chapter_list .. ". "
+                    .. (chapter_list[#chapter_list]["title"] or file.title)
+    })
+    print("Writing out all " .. #segment_list .. " chapters to separate files ....")
+end
+
 local function write_set(mode, file_name, file_pos, quiet)
     local command = {
         _flags = {
@@ -583,6 +646,11 @@ local function write_set(mode, file_name, file_pos, quiet)
     }
     if mode == "ab" then
         command["name"] = "ab-loop-dump-cache"
+    elseif (mode == "chapter" or mode == "segments") and segment_list then
+        command["name"] = "dump-cache"
+        command["start"] = segment_list[1]["start"]
+        command["end"] = segment_list[1]["end"]
+        table.remove(segment_list, 1)
     else
         command["name"] = "dump-cache"
         command["start"] = 0
@@ -598,11 +666,23 @@ local function cache_write(mode, quiet)
         file.queue = file.queue or {}
         -- honor extra write requests when pending queue is full
         -- but limit number of outstanding write requests to be fulfilled
-        if #file.queue < 10 then
+        if #file.queue < 10 and not segment_list then
             table.insert(file.queue, {mode, quiet})
         end
         return end
     range_flip()
+    -- set the output list for the chapter modes
+    if mode == "segments" and not segment_list then
+        get_chapters()
+        if #chapter_list > 0 then
+            extract_segments()
+        else
+            mode = "continuous"
+        end
+    end
+    if mode == "chapter" and not segment_list then
+        write_chapter(mp.get_property_number("chapter", -1) + 1)
+    end
     -- evaluate tagging conditions and set file name
     if opts.output_label == "increment" then
         increment_filename()
@@ -612,6 +692,12 @@ local function cache_write(mode, quiet)
         file.name = set_name(-os.time())
     elseif opts.output_label == "overwrite" then
         file.name = set_name("")
+    elseif opts.output_label == "chapter" then
+        if segment_list then
+            file.name = file.path .. "/" .. segment_list[1]["title"] .. file.ext
+        else
+            increment_filename()
+        end
     end
     -- dump cache according to mode
     local file_pos
@@ -642,7 +728,14 @@ local function cache_write(mode, quiet)
             end
             file.pending = file.pending - 1
             -- fulfil any write requests now that the pending queue has been serviced
-            if file.queue and #file.queue > 0 then
+            if segment_list then
+                if mode == "segments" and #segment_list > 0 then
+                    cache_write("segments", true)
+                else
+                    segment_list = nil
+                end
+            end
+            if file.queue and #file.queue > 0 and not segment_list then
                 cache_write(file.queue[1][1], file.queue[1][2])
                 table.remove(file.queue, 1)
             end
@@ -960,6 +1053,13 @@ mp.register_script_message("streamsave-hostchange", hostchange_override)
 mp.register_script_message("streamsave-quit", quit_override)
 mp.register_script_message("streamsave-piecewise", piecewise_override)
 mp.register_script_message("streamsave-packets", packet_override)
+mp.register_script_message("streamsave-chapter",
+    function(chapter)
+        if write_chapter(tonumber(chapter)) then
+            cache_write("chapter")
+        end
+    end
+)
 
 mp.add_key_binding("Alt+z", "mode-switch", function() mode_switch("cycle") end)
 mp.add_key_binding("Ctrl+x", "stop-cache-write", stop)
