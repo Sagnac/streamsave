@@ -880,7 +880,9 @@ end
 function automatic(_, cache_time)
     if opts.hostchange and cache.prior ~= 0
        and (not cache_time or math.abs(cache_time - cache.prior) > 300
-            or mp.get_property_number("demuxer-cache-duration", 0) > 11000)
+            or mp.get_property_number("demuxer-cache-duration", 0) > 11000
+            or cache.restart and cache.restart:is_enabled() and
+               get_seekable_cache(nil, false, true))
        and not mp.get_property_bool("seeking")
     then
         if not cache.restart or not cache.restart:is_enabled() then
