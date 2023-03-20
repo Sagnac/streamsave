@@ -11,10 +11,12 @@ Essentially a wrapper around mpv's cache dumping commands, the script adds the f
 
 * Automatic determination of the output file name and format
 * Option to specify the preferred output directory
-* Switch between 3 different dump modes (clip mode, full/continuous dump, write from beginning to current position)
+* Switch between 5 different dump modes:
+ (clip mode, full/continuous dump, write from beginning to current position, current chapter, all chapters)
 * Prevention of file overwrites
 * Acceptance of inverted loop ranges, allowing the end point to be set first
 * Dynamic chapter indicators on the OSC displaying the clipping interval
+* Option to track HLS packet drops
 * Automated stream saving
 * Workaround for some DAI HLS streams served from .m3u8 where the host changes
 
@@ -50,14 +52,26 @@ and only set the first loop point then press the cache-write keybind.
 
 dump_mode=current will dump the cache from timestamp 0 to the current playback position in the file.
 
+dump_mode=chapter will write the current chapter to file.
+
+dump_mode=segments writes out all chapters to individual files.
+
+If you wish to output a single chapter using a numerical input instead you can specify it with a command at runtime:
+script-message streamsave-chapter 7
+
 The output_label option allows you to choose how the output filename is tagged.
 The default uses iterated step increments for every file output; i.e. file-1.mkv, file-2.mkv, etc.
 
-There are 3 other choices:
+There are 4 other choices:
+
 output_label=timestamp will append Unix timestamps to the file name.
+
 output_label=range will tag the file with the A-B loop range instead using the format HH.MM.SS
 e.g. file-[00.15.00 - 00.20.00].mkv
+
 output_label=overwrite will not tag the file and will overwrite any existing files with the same name.
+
+output_label=chapter uses the chapter title for the file name if using one of the chapter modes.
 
 The force_extension option allows you to force a preferred format and sidestep the automatic detection.
 If using this option it is recommended that a highly flexible container is used (e.g. Matroska).
@@ -76,6 +90,8 @@ If chapters already exist they are stored and cleared whenever any A-B points ar
 Once the A-B points are cleared the original chapters are restored.
 Any chapters added after A-B mode is entered are added to the initial chapter list.
 This option is disabled by default; set range_marks=yes in streamsave.conf in order to enable it.
+
+The track_packets option adds chapters to positions where packet loss occurs for HLS streams.
 
 Automation Options:
 
