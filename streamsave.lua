@@ -770,7 +770,7 @@ end
 function get_chapters()
     local current_chapters = mp.get_property_native("chapter-list", {})
     -- make sure master list is up to date
-    if current_chapters[1] and
+    if not current_chapters[1] or
        not string.match(current_chapters[1]["title"], "^[AB] loop point$")
     then
         chapter_list = current_chapters
