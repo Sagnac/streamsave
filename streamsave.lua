@@ -194,7 +194,7 @@ local write_file
 local reset
 local title_change
 local container
-local segment_list
+local segments = {}
 local chapter_list = {} -- initial chapter list
 local ab_chapters = {}  -- A-B loop point chapters
 local get_chapters
@@ -613,15 +613,13 @@ end
 local function write_chapter(chapter)
     get_chapters()
     if chapter_list[chapter] or chapter == 0 then
-        segment_list = {
-            {
-                ["start"] = chapter == 0 and 0 or chapter_list[chapter]["time"],
-                ["end"] = chapter_list[chapter + 1]
-                          and chapter_list[chapter + 1]["time"]
-                          or mp.get_property_number("duration", "no"),
-                ["title"] = chapter .. ". " .. (chapter ~= 0
-                            and chapter_list[chapter]["title"] or file.title)
-            }
+        segments[1] = {
+            ["start"] = chapter == 0 and 0 or chapter_list[chapter]["time"],
+            ["end"] = chapter_list[chapter + 1]
+                      and chapter_list[chapter + 1]["time"]
+                      or mp.get_property_number("duration", "no"),
+            ["title"] = chapter .. ". " .. (chapter ~= 0
+                        and chapter_list[chapter]["title"] or file.title)
         }
         print("Writing chapter " .. chapter .. " ....")
         return true
@@ -631,27 +629,26 @@ local function write_chapter(chapter)
 end
 
 local function extract_segments(n)
-    segment_list = {}
     for i = 1, n - 1 do
-        segment_list[i] = {
+        segments[i] = {
             ["start"] = chapter_list[i]["time"],
             ["end"] = chapter_list[i + 1]["time"],
             ["title"] = i .. ". " .. (chapter_list[i]["title"] or file.title)
         }
     end
     if chapter_list[1]["time"] ~= 0 then
-        table.insert(segment_list, 1, {
+        table.insert(segments, 1, {
             ["start"] = 0,
             ["end"] = chapter_list[1]["time"],
             ["title"] = "0. " .. file.title
         })
     end
-    table.insert(segment_list, {
+    table.insert(segments, {
         ["start"] = chapter_list[n]["time"],
         ["end"] = mp.get_property_number("duration", "no"),
         ["title"] = n .. ". " .. (chapter_list[n]["title"] or file.title)
     })
-    print("Writing out all " .. #segment_list .. " chapters to separate files ....")
+    print("Writing out all " .. #segments .. " chapters to separate files ....")
 end
 
 local function write_set(mode, file_name, file_pos, quiet)
@@ -663,11 +660,11 @@ local function write_set(mode, file_name, file_pos, quiet)
     }
     if mode == "ab" then
         command["name"] = "ab-loop-dump-cache"
-    elseif (mode == "chapter" or mode == "segments") and segment_list then
+    elseif (mode == "chapter" or mode == "segments") and segments[1] then
         command["name"] = "dump-cache"
-        command["start"] = segment_list[1]["start"]
-        command["end"] = segment_list[1]["end"]
-        table.remove(segment_list, 1)
+        command["start"] = segments[1]["start"]
+        command["end"] = segments[1]["end"]
+        table.remove(segments, 1)
     else
         command["name"] = "dump-cache"
         command["start"] = 0
@@ -694,17 +691,12 @@ local function on_write_finish(cache_write, mode, file_name)
         end
         file.pending = file.pending - 1
         -- fulfil any write requests now that the pending queue has been serviced
-        if segment_list then
-            if mode == "segments" and next(segment_list) then
-                cache_write("segments", true)
-            else
-                segment_list = nil
-                if mode == "segments" then
-                    mp.osd_message("Cache dumping successfully ended.")
-                end
-            end
+        if next(segments) then
+            cache_write("segments", true)
+        elseif mode == "segments" then
+            mp.osd_message("Cache dumping successfully ended.")
         end
-        if file.queue and next(file.queue) and not segment_list then
+        if file.queue and next(file.queue) and not segments[1] then
             cache_write(unpack(file.queue[1]))
             table.remove(file.queue, 1)
         end
@@ -714,7 +706,9 @@ end
 local function cache_write(mode, quiet, chapter)
     if not (file.title and file.ext) then
         return end
-    if file.pending == 2 or segment_list and file.pending > 0 and not continuous then
+    if file.pending == 2
+       or segments[1] and file.pending > 0 and not continuous
+    then
         file.queue = file.queue or {}
         -- honor extra write requests when pending queue is full
         -- but limit number of outstanding write requests to be fulfilled
@@ -724,7 +718,7 @@ local function cache_write(mode, quiet, chapter)
         return end
     range_flip()
     -- set the output list for the chapter modes
-    if mode == "segments" and not segment_list then
+    if mode == "segments" and not segments[1] then
         get_chapters()
         local n = #chapter_list
         if n > 0 then
@@ -734,8 +728,7 @@ local function cache_write(mode, quiet, chapter)
         else
             mode = "continuous"
         end
-    end
-    if mode == "chapter" and not segment_list then
+    elseif mode == "chapter" and not segments[1] then
         chapter = chapter or mp.get_property_number("chapter", -1) + 1
         if not write_chapter(chapter) then
             return
@@ -751,8 +744,8 @@ local function cache_write(mode, quiet, chapter)
     elseif opts.output_label == "overwrite" then
         file.name = set_name("")
     elseif opts.output_label == "chapter" then
-        if segment_list then
-            file.name = file.path .. "/" .. segment_list[1]["title"] .. file.ext
+        if segments[1] then
+            file.name = file.path .. "/" .. segments[1]["title"] .. file.ext
         else
             increment_filename()
         end
@@ -761,7 +754,7 @@ local function cache_write(mode, quiet, chapter)
     local file_pos
     file.pending = (file.pending or 0) + 1
     continuous = mode == "continuous" or loop.a and not loop.b
-                 or segment_list and segment_list[1]["end"] == "no"
+                 or segments[1] and segments[1]["end"] == "no"
     if mode == "current" then
         file_pos = mp.get_property_number("playback-time", 0)
     elseif continuous and file.pending == 1 then
