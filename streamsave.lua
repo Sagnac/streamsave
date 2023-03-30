@@ -539,6 +539,9 @@ end
 
 local function packet_override(value)
     local track_packets = opts.track_packets
+    if value == "cycle" then
+        value = not track_packets and "yes" or "no"
+    end
     if not value or value == "no" then
         opts.track_packets = false
         print("Track packets disabled")
