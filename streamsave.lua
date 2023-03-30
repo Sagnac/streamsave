@@ -677,6 +677,41 @@ local function write_set(mode, file_name, file_pos, quiet)
     return command
 end
 
+local function on_write_finish(cache_write, mode, file_name)
+    return function(success, _, command_error)
+        command_error = command_error and msg.error(command_error)
+        -- check if file is written
+        if utils.file_info(file_name) then
+            if success then
+                print("Finished writing cache to: " .. file_name)
+            else
+                msg.warn("Possibly broken file created at: " .. file_name)
+            end
+        else
+            msg.error("File not written.")
+        end
+        if continuous and file.pending == 2 then
+            print("Dumping cache continuously to: " .. file.name)
+        end
+        file.pending = file.pending - 1
+        -- fulfil any write requests now that the pending queue has been serviced
+        if segment_list then
+            if mode == "segments" and next(segment_list) then
+                cache_write("segments", true)
+            else
+                segment_list = nil
+                if mode == "segments" then
+                    mp.osd_message("Cache dumping successfully ended.")
+                end
+            end
+        end
+        if file.queue and next(file.queue) and not segment_list then
+            cache_write(unpack(file.queue[1]))
+            table.remove(file.queue, 1)
+        end
+    end
+end
+
 local function cache_write(mode, quiet, chapter)
     if not (file.title and file.ext) then
         return end
@@ -725,50 +760,17 @@ local function cache_write(mode, quiet, chapter)
     end
     -- dump cache according to mode
     local file_pos
-    local file_name = file.name -- scope reduction so callback verifies correct file
     file.pending = (file.pending or 0) + 1
     continuous = mode == "continuous" or loop.a and not loop.b
                  or segment_list and segment_list[1]["end"] == "no"
     if mode == "current" then
         file_pos = mp.get_property_number("playback-time", 0)
     elseif continuous and file.pending == 1 then
-        print("Dumping cache continuously to: " .. file_name)
+        print("Dumping cache continuously to: " .. file.name)
     end
-    write_file = mp.command_native_async (
-        write_set(mode, file_name, file_pos, quiet),
-        function(success, _, command_error)
-            command_error = command_error and msg.error(command_error)
-            -- check if file is written
-            if utils.file_info(file_name) then
-                if success then
-                    print("Finished writing cache to: " .. file_name)
-                else
-                    msg.warn("Possibly broken file created at: " .. file_name)
-                end
-            else
-                msg.error("File not written.")
-            end
-            if continuous and file.pending == 2 then
-                print("Dumping cache continuously to: " .. file.name)
-            end
-            file.pending = file.pending - 1
-            -- fulfil any write requests now that the pending queue has been serviced
-            if segment_list then
-                if mode == "segments" and next(segment_list) then
-                    cache_write("segments", true)
-                else
-                    segment_list = nil
-                    if mode == "segments" then
-                        mp.osd_message("Cache dumping successfully ended.")
-                    end
-                end
-            end
-            if file.queue and next(file.queue) and not segment_list then
-                cache_write(unpack(file.queue[1]))
-                table.remove(file.queue, 1)
-            end
-        end
-    )
+    local commands = write_set(mode, file.name, file_pos, quiet)
+    local callback = on_write_finish(cache_write, mode, file.name)
+    write_file = mp.command_native_async(commands, callback)
     return true
 end
 
