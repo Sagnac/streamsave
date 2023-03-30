@@ -633,9 +633,9 @@ local function write_chapter(chapter)
     end
 end
 
-local function extract_segments()
+local function extract_segments(n)
     segment_list = {}
-    for i = 1, #chapter_list - 1 do
+    for i = 1, n - 1 do
         segment_list[i] = {
             ["start"] = chapter_list[i]["time"],
             ["end"] = chapter_list[i + 1]["time"],
@@ -650,10 +650,9 @@ local function extract_segments()
         })
     end
     table.insert(segment_list, {
-        ["start"] = chapter_list[#chapter_list]["time"],
+        ["start"] = chapter_list[n]["time"],
         ["end"] = mp.get_property_number("duration", "no"),
-        ["title"] = #chapter_list .. ". "
-                    .. (chapter_list[#chapter_list]["title"] or file.title)
+        ["title"] = n .. ". " .. (chapter_list[n]["title"] or file.title)
     })
     print("Writing out all " .. #segment_list .. " chapters to separate files ....")
 end
@@ -680,29 +679,35 @@ local function write_set(mode, file_name, file_pos, quiet)
     return command
 end
 
-local function cache_write(mode, quiet)
+local function cache_write(mode, quiet, chapter)
     if not (file.title and file.ext) then
         return end
-    if file.pending == 2 then
+    if file.pending == 2 or segment_list and file.pending > 0 and not continuous then
         file.queue = file.queue or {}
         -- honor extra write requests when pending queue is full
         -- but limit number of outstanding write requests to be fulfilled
-        if #file.queue < 10 and not segment_list then
-            table.insert(file.queue, {mode, quiet})
+        if #file.queue < 10 then
+            table.insert(file.queue, {mode, quiet, chapter})
         end
         return end
     range_flip()
     -- set the output list for the chapter modes
     if mode == "segments" and not segment_list then
         get_chapters()
-        if #chapter_list > 0 then
-            extract_segments()
+        local n = #chapter_list
+        if n > 0 then
+            extract_segments(n)
+            quiet = true
+            mp.osd_message("Cache dumping started.")
         else
             mode = "continuous"
         end
     end
     if mode == "chapter" and not segment_list then
-        write_chapter(mp.get_property_number("chapter", -1) + 1)
+        chapter = chapter or mp.get_property_number("chapter", -1) + 1
+        if not write_chapter(chapter) then
+            return
+        end
     end
     -- evaluate tagging conditions and set file name
     if opts.output_label == "increment" then
@@ -725,10 +730,11 @@ local function cache_write(mode, quiet)
     local file_name = file.name -- scope reduction so callback verifies correct file
     file.pending = (file.pending or 0) + 1
     continuous = mode == "continuous" or loop.a and not loop.b
+                 or segment_list and segment_list[1]["end"] == "no"
     if mode == "current" then
         file_pos = mp.get_property_number("playback-time", 0)
     elseif continuous and file.pending == 1 then
-        print("Dumping cache continuously to:" .. file_name)
+        print("Dumping cache continuously to: " .. file_name)
     end
     write_file = mp.command_native_async (
         write_set(mode, file_name, file_pos, quiet),
@@ -737,27 +743,30 @@ local function cache_write(mode, quiet)
             -- check if file is written
             if utils.file_info(file_name) then
                 if success then
-                    print("Finished writing cache to:" .. file_name)
+                    print("Finished writing cache to: " .. file_name)
                 else
-                    msg.warn("Possibly broken file created at:" .. file_name)
+                    msg.warn("Possibly broken file created at: " .. file_name)
                 end
             else
                 msg.error("File not written.")
             end
             if continuous and file.pending == 2 then
-                print("Dumping cache continuously to:" .. file.name)
+                print("Dumping cache continuously to: " .. file.name)
             end
             file.pending = file.pending - 1
             -- fulfil any write requests now that the pending queue has been serviced
             if segment_list then
-                if mode == "segments" and #segment_list > 0 then
+                if mode == "segments" and next(segment_list) then
                     cache_write("segments", true)
                 else
                     segment_list = nil
+                    if mode == "segments" then
+                        mp.osd_message("Cache dumping successfully ended.")
+                    end
                 end
             end
-            if file.queue and #file.queue > 0 and not segment_list then
-                cache_write(file.queue[1][1], file.queue[1][2])
+            if file.queue and next(file.queue) and not segment_list then
+                cache_write(unpack(file.queue[1]))
                 table.remove(file.queue, 1)
             end
         end
@@ -1088,9 +1097,7 @@ mp.register_script_message("streamsave-piecewise", piecewise_override)
 mp.register_script_message("streamsave-packets", packet_override)
 mp.register_script_message("streamsave-chapter",
     function(chapter)
-        if write_chapter(tonumber(chapter)) then
-            cache_write("chapter")
-        end
+        cache_write("chapter", _, tonumber(chapter))
     end
 )
 
