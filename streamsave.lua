@@ -207,10 +207,8 @@ local autoquit
 local packet_events
 
 function convert_time(value)
-    local i, j, H, M, S = value:find("(%d+):(%d+):(%d+)")
-    if not i then
-        return
-    else
+    local H, M, S = value:match("^(%d+):([0-5]%d):([0-5]%d)$")
+    if H then
         return H*3600 + M*60 + S
     end
 end
@@ -366,7 +364,7 @@ function container(_, _, req)
         file.ext = opts.force_extension
         observe_cache()
         return end
-    if string.find(file_format, "mp4")
+    if string.match(file_format, "mp4")
        or ((video == "h264" or video == "av1" or not video) and
            (audio == "aac" or not audio))
     then
