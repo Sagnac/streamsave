@@ -184,6 +184,7 @@ local cache = {
     switch,          -- request to observe track switches and seeking
     use,             -- use cache_time instead of seekend for initial piece
     restart,         -- hostchange interval where subsequent reloads are immediate
+    packets,         -- table of periodic timers indexed by packet drop cache times
 }
 
 local convert_time
@@ -1013,8 +1014,15 @@ autoquit()
 
 local function fragment_chapters(packets, cache_time)
     local no_loop_chapters = get_chapters()
+    for i, chapter in ipairs(chapter_list) do
+        if chapter["time"] == cache_time then
+            cache.packets[cache_time]:kill()
+            cache.packets[cache_time] = nil
+            return
+        end
+    end
     table.insert(chapter_list, {
-        title = packets .. " packet(s) dropped",
+        title = packets .. " segment(s) dropped",
         time = cache_time
     })
     if no_loop_chapters then
@@ -1027,11 +1035,14 @@ local function packet_handler(t)
         local packets = t.text:match("^hls: skipping (%d+)")
         if packets then
             local cache_time = mp.get_property_number("demuxer-cache-time")
-            -- add the chapters on a delay as sometimes they won't set properly
-            -- on packet drops
-            mp.add_timeout(15, function()
-                fragment_chapters(packets, cache_time)
-            end)
+            if cache_time then
+                -- ensure the chapters set
+                cache.packets[cache_time] = mp.add_periodic_timer(3,
+                    function()
+                        fragment_chapters(packets, cache_time)
+                    end
+                )
+            end
         end
     end
 end
@@ -1040,6 +1051,7 @@ function packet_events(state)
     if not state then
         mp.unregister_event(packet_handler)
     else
+        cache.packets = {}
         mp.enable_messages("warn")
         mp.register_event("log-message", packet_handler)
     end
