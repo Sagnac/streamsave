@@ -467,11 +467,6 @@ local function marks_override(value)
 end
 
 local function autostart_override(value)
-    if value and value ~= "no" and value ~= "yes" then
-        msg.error("Invalid input '" .. value .. "'. Use yes or no.")
-        mp.osd_message("streamsave: invalid input; use yes or no")
-        return
-    end
     if not value or value == "no" then
         opts.autostart = false
         print("Autostart disabled")
@@ -480,6 +475,10 @@ local function autostart_override(value)
         opts.autostart = true
         print("Autostart enabled")
         mp.osd_message("streamsave: autostart enabled")
+    else
+        msg.error("Invalid input '" .. value .. "'. Use yes or no.")
+        mp.osd_message("streamsave: invalid input; use yes or no")
+        return
     end
     observe_cache()
 end
@@ -495,11 +494,6 @@ end
 
 local function hostchange_override(value)
     value = value == "cycle" and (not opts.hostchange and "yes" or "no") or value
-    if value and value ~= "no" and value ~= "yes" then
-        msg.error("Invalid input '" .. value .. "'. Use yes or no.")
-        mp.osd_message("streamsave: invalid input; use yes or no")
-        return
-    end
     if not value or value == "no" then
         opts.hostchange = false
         mp.unobserve_property(reload)
@@ -510,6 +504,10 @@ local function hostchange_override(value)
         opts.hostchange = true
         print("Hostchange enabled")
         mp.osd_message("streamsave: hostchange enabled")
+    else
+        msg.error("Invalid input '" .. value .. "'. Use yes or no.")
+        mp.osd_message("streamsave: invalid input; use yes or no")
+        return
     end
     observe_cache()
 end
