@@ -272,8 +272,10 @@ local function update_opts(changed)
         if opts.range_marks then
             chapter_points()
         else
+            if not get_chapters() then
+                mp.set_property_native("chapter-list", chapter_list)
+            end
             ab_chapters = {}
-            mp.set_property_native("chapter-list", chapter_list)
         end
     end
     if changed["autoend"] then
@@ -448,8 +450,10 @@ end
 local function marks_override(value)
     if not value or value == "no" then
         opts.range_marks = false
+        if not get_chapters() then
+            mp.set_property_native("chapter-list", chapter_list)
+        end
         ab_chapters = {}
-        mp.set_property_native("chapter-list", chapter_list)
         print("Range marks disabled")
         mp.osd_message("streamsave: range marks disabled")
     elseif value == "yes" then
@@ -785,11 +789,13 @@ end
 
 function get_chapters()
     local current_chapters = mp.get_property_native("chapter-list", {})
+    local updated -- do the stored chapters reflect the current chapters ?
     -- make sure master list is up to date
     if not current_chapters[1] or
        not string.match(current_chapters[1]["title"], "^[AB] loop point$")
     then
         chapter_list = current_chapters
+        updated = true
     -- if a script has added chapters after A-B points are set then
     -- add those to the original chapter list
     elseif #current_chapters > #ab_chapters then
@@ -797,19 +803,22 @@ function get_chapters()
             table.insert(chapter_list, current_chapters[i])
         end
     end
+    return updated
 end
 
 -- creates chapters at A-B loop points
 function chapter_points()
     if not opts.range_marks then
         return end
-    get_chapters()
+    local updated = get_chapters()
     ab_chapters = {}
     -- restore original chapter list if A-B points are cleared
     -- otherwise set chapters to A-B points
     range_flip()
     if not loop.a and not loop.b then
-        mp.set_property_native("chapter-list", chapter_list)
+        if not updated then
+            mp.set_property_native("chapter-list", chapter_list)
+        end
     else
         if loop.a then
             ab_chapters[1] = {
@@ -994,12 +1003,12 @@ end
 autoquit()
 
 local function fragment_chapters(packets, cache_time)
-    get_chapters()
+    local no_loop_chapters = get_chapters()
     table.insert(chapter_list, {
         title = packets .. " packet(s) dropped",
         time = cache_time
     })
-    if not opts.range_marks or not loop.a and not loop.b then
+    if no_loop_chapters then
         mp.set_property_native("chapter-list", chapter_list)
     end
 end
