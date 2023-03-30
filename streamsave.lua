@@ -1029,6 +1029,9 @@ local function fragment_chapters(packets, cache_time)
 end
 
 local function packet_handler(t)
+    if not opts.track_packets then -- second layer in case unregistering is async
+        return
+    end
     if t.prefix == "ffmpeg/demuxer" then
         local packets = t.text:match("^hls: skipping (%d+)")
         if packets then
@@ -1048,6 +1051,20 @@ end
 function packet_events(state)
     if not state then
         mp.unregister_event(packet_handler)
+        for k, timer in pairs(cache.packets) do
+            timer:kill()
+        end
+        cache.packets = nil
+        local no_loop_chapters = get_chapters()
+        local n = #chapter_list
+        for i = n, 1, -1 do
+            if chapter_list[i]["title"]:match("^%d+ segment%(s%) dropped$") then
+                table.remove(chapter_list, i)
+            end
+        end
+        if no_loop_chapters and n > #chapter_list then
+            mp.set_property_native("chapter-list", chapter_list)
+        end
     else
         cache.packets = {}
         mp.enable_messages("warn")
