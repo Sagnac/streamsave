@@ -185,6 +185,7 @@ local cache = {
     use,             -- use cache_time instead of seekend for initial piece
     restart,         -- hostchange interval where subsequent reloads are immediate
     packets,         -- table of periodic timers indexed by packet drop cache times
+    playtime,        -- previous playback-time for auto reload checks
 }
 
 local convert_time
@@ -894,16 +895,23 @@ end
 
 function reload(_, play_time)
     local cache_duration = mp.get_property_number("demuxer-cache-duration")
-    if play_time and play_time >= cache.seekend - 0.25
+    local seeking = mp.get_property_bool("seeking")
+    play_time = math.abs(play_time or 0)
+    if play_time >= cache.seekend - 0.25
        or cache_duration and math.abs(cache.prior - cache_duration) > 4800
        or get_seekable_cache(nil, false, true)
+       or cache.playtime and math.abs(play_time - cache.playtime) > 7
+          and not seeking
     then
         reset()
+        cache.playtime = nil
         cache.restart = cache.restart or mp.add_timeout(300, function() end)
         cache.restart:resume()
         msg.warn("Reloading stream due to host change.")
         mp.command("playlist-play-index current")
+        return
     end
+    cache.playtime = play_time
 end
 
 function automatic(_, cache_time)
