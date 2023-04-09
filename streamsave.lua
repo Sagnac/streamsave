@@ -160,6 +160,9 @@ local file = {
     loaded,          -- flagged once the initial load has taken place
     pending,         -- number of files pending write completion (max 2)
     queue,           -- cache_write queue in case of multiple write requests
+    writing,         -- file writing object returned by the write command
+    quitsec,         -- user specified quit time in seconds
+    quit_timer,      -- player quit timer set according to quitsec
     oldtitle,        -- initialized if title is overridden, allows revert
     oldext,          -- initialized if format is overridden, allows revert
     oldpath,         -- initialized if directory is overriden, allows revert
@@ -172,6 +175,7 @@ local loop = {
     b_revert,        -- B loop point prior to keyframe alignment
     range,           -- A-B loop range
     aligned,         -- are the loop points aligned to keyframes?
+    continuous,      -- is the writing continuous?
 }
 
 local cache = {
@@ -188,27 +192,23 @@ local cache = {
     playtime,        -- previous playback-time for auto reload checks
 }
 
-local convert_time
-local observe_cache
-local continuous
-local write_file
-local reset
-local title_change
-local container
-local segments = {}
+local segments = {}     -- chapter segments set for writing
 local chapter_list = {} -- initial chapter list
 local ab_chapters = {}  -- A-B loop point chapters
+
+local title_change
+local container
 local get_chapters
 local chapter_points
+local reset
 local get_seekable_cache
 local reload
 local automatic
-local quitseconds
-local quit_timer
 local autoquit
 local packet_events
+local observe_cache
 
-function convert_time(value)
+local function convert_time(value)
     local H, M, S = value:match("^(%d+):([0-5]%d):([0-5]%d)$")
     if H then
         return H*3600 + M*60 + S
@@ -245,8 +245,8 @@ local function validate_opts()
         end
     end
     if opts.quit ~= "no" then
-        quitseconds = convert_time(opts.quit)
-        if not quitseconds then
+        file.quitsec = convert_time(opts.quit)
+        if not file.quitsec then
             msg.error("Invalid quit value '" .. opts.quit ..
                      "'. Use HH:MM:SS format.")
             opts.quit = "no"
@@ -690,7 +690,7 @@ local function on_write_finish(cache_write, mode, file_name)
         else
             msg.error("File not written.")
         end
-        if continuous and file.pending == 2 then
+        if loop.continuous and file.pending == 2 then
             print("Dumping cache continuously to: " .. file.name)
         end
         file.pending = file.pending - 1
@@ -711,7 +711,7 @@ local function cache_write(mode, quiet, chapter)
     if not (file.title and file.ext) then
         return end
     if file.pending == 2
-       or segments[1] and file.pending > 0 and not continuous
+       or segments[1] and file.pending > 0 and not loop.continuous
     then
         file.queue = file.queue or {}
         -- honor extra write requests when pending queue is full
@@ -757,16 +757,16 @@ local function cache_write(mode, quiet, chapter)
     -- dump cache according to mode
     local file_pos
     file.pending = (file.pending or 0) + 1
-    continuous = mode == "continuous" or loop.a and not loop.b
-                 or segments[1] and segments[1]["end"] == "no"
+    loop.continuous = mode == "continuous" or loop.a and not loop.b
+                      or segments[1] and segments[1]["end"] == "no"
     if mode == "current" then
         file_pos = mp.get_property_number("playback-time", 0)
-    elseif continuous and file.pending == 1 then
+    elseif loop.continuous and file.pending == 1 then
         print("Dumping cache continuously to: " .. file.name)
     end
     local commands = write_set(mode, file.name, file_pos, quiet)
     local callback = on_write_finish(cache_write, mode, file.name)
-    write_file = mp.command_native_async(commands, callback)
+    file.writing = mp.command_native_async(commands, callback)
     return true
 end
 
@@ -848,7 +848,7 @@ end
 
 -- stops writing the file
 local function stop()
-    mp.abort_async_command(write_file or {})
+    mp.abort_async_command(file.writing or {})
 end
 
 function reset()
@@ -996,20 +996,20 @@ end
 
 function autoquit()
     if opts.quit == "no" then
-        if quit_timer then
-            quit_timer:kill()
+        if file.quit_timer then
+            file.quit_timer:kill()
         end
-    elseif not quit_timer then
-        quit_timer = mp.add_timeout(quitseconds,
+    elseif not file.quit_timer then
+        file.quit_timer = mp.add_timeout(file.quitsec,
             function()
                 stop()
                 mp.command("quit")
                 print("Quit after " .. opts.quit)
             end)
     else
-        quit_timer["timeout"] = quitseconds
-        quit_timer:kill()
-        quit_timer:resume()
+        file.quit_timer["timeout"] = file.quitsec
+        file.quit_timer:kill()
+        file.quit_timer:resume()
     end
 end
 autoquit()
