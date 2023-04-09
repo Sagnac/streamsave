@@ -188,7 +188,8 @@ local cache = {
     switch,          -- request to observe track switches and seeking
     use,             -- use cache_time instead of seekend for initial piece
     restart,         -- hostchange interval where subsequent reloads are immediate
-    packets,         -- table of periodic timers indexed by packet drop cache times
+    id,              -- number of times the packet tracking event has fired
+    packets,         -- table of periodic timers indexed by cache id stamps
     playtime,        -- previous playback-time for auto reload checks
 }
 
@@ -1014,17 +1015,18 @@ function autoquit()
 end
 autoquit()
 
-local function fragment_chapters(packets, cache_time)
+local function fragment_chapters(packets, cache_time, stamp)
     local no_loop_chapters = get_chapters()
-    for i, chapter in ipairs(chapter_list) do
-        if chapter["time"] == cache_time then
-            cache.packets[cache_time]:kill()
-            cache.packets[cache_time] = nil
+    local title = string.format("%s segment(s) dropped [%s]", packets, stamp)
+    for _, chapter in ipairs(chapter_list) do
+        if chapter["title"] == title then
+            cache.packets[stamp]:kill()
+            cache.packets[stamp] = nil
             return
         end
     end
     table.insert(chapter_list, {
-        title = packets .. " segment(s) dropped",
+        title = title,
         time = cache_time
     })
     if no_loop_chapters then
@@ -1042,9 +1044,11 @@ local function packet_handler(t)
             local cache_time = mp.get_property_number("demuxer-cache-time")
             if cache_time then
                 -- ensure the chapters set
-                cache.packets[cache_time] = mp.add_periodic_timer(3,
+                cache.id = cache.id + 1
+                local stamp = string.format("%#x", cache.id)
+                cache.packets[stamp] = mp.add_periodic_timer(3,
                     function()
-                        fragment_chapters(packets, cache_time)
+                        fragment_chapters(packets, cache_time, stamp)
                     end
                 )
             end
@@ -1055,14 +1059,15 @@ end
 function packet_events(state)
     if not state then
         mp.unregister_event(packet_handler)
-        for k, timer in pairs(cache.packets) do
+        for _, timer in pairs(cache.packets) do
             timer:kill()
         end
+        cache.id = nil
         cache.packets = nil
         local no_loop_chapters = get_chapters()
         local n = #chapter_list
         for i = n, 1, -1 do
-            if chapter_list[i]["title"]:match("^%d+ segment%(s%) dropped$") then
+            if chapter_list[i]["title"]:match("%d+ segment%(s%) dropped") then
                 table.remove(chapter_list, i)
             end
         end
@@ -1070,6 +1075,7 @@ function packet_events(state)
             mp.set_property_native("chapter-list", chapter_list)
         end
     else
+        cache.id = 0
         cache.packets = {}
         mp.enable_messages("warn")
         mp.register_event("log-message", packet_handler)
