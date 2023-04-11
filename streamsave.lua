@@ -758,7 +758,8 @@ local function cache_write(mode, quiet, chapter)
     -- dump cache according to mode
     local file_pos
     file.pending = (file.pending or 0) + 1
-    loop.continuous = mode == "continuous" or loop.a and not loop.b
+    loop.continuous = mode == "continuous"
+                      or mode == "ab" and loop.a and not loop.b
                       or segments[1] and segments[1]["end"] == "no"
     if mode == "current" then
         file_pos = mp.get_property_number("playback-time", 0)
