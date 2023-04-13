@@ -1091,6 +1091,7 @@ function observe_cache()
     local network = mp.get_property_bool("demuxer-via-network")
     local obs_xyz = opts.autostart or cache.endsec or opts.hostchange
     if not cache.observed and obs_xyz and network then
+        cache.dumped = (file.pending or 0) ~= 0
         mp.observe_property("demuxer-cache-time", "number", automatic)
         cache.observed = true
     elseif (cache.observed or cache.dumped) and (not obs_xyz or not network) then
