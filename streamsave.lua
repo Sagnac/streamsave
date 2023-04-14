@@ -189,7 +189,6 @@ local cache = {
     use,             -- use cache_time instead of seekend for initial piece
     id,              -- number of times the packet tracking event has fired
     packets,         -- table of periodic timers indexed by cache id stamps
-    reader,          -- previous reader pts for auto reload checks
 }
 
 local track = {
@@ -866,11 +865,6 @@ local function stop()
     mp.abort_async_command(file.writing or {})
 end
 
-local function suspend()
-    track.suspend = track.suspend or mp.add_timeout(25, function() end)
-    track.suspend:resume()
-end
-
 function reset()
     if cache.observed or cache.dumped then
         stop()
@@ -884,6 +878,28 @@ function reset()
     cache.switch = true
 end
 reset()
+
+-- reload on demand (hostchange)
+local function reload()
+    reset()
+    observe_tracks()
+    msg.warn("Reloading stream due to host change.")
+    mp.command("playlist-play-index current")
+end
+
+local function stabilize()
+    if mp.get_property_number("demuxer-cache-time", 0) > 1500 then
+        reload()
+    end
+end
+
+local function suspend()
+    if not track.suspend then
+        track.suspend = mp.add_timeout(25, stabilize)
+    else
+        track.suspend:resume()
+    end
+end
 
 function get_seekable_cache(prop, range_check)
     -- use the seekable part of the cache for more accurate timestamps
@@ -908,28 +924,20 @@ function get_seekable_cache(prop, range_check)
 end
 
 -- seamlessly reload on inserts (hostchange)
-local function reload(_, cache_state)
+local function seamless(_, cache_state)
     cache_state = cache_state or {}
     local reader = math.abs(cache_state["reader-pts"] or 0)
     local cache_duration = math.abs(cache_state["cache-duration"] or cache.prior)
-    local seeking = mp.get_property_bool("seeking")
     -- wait until playback of the loaded cache has practically ended
     -- or there's a timestamp reset / position shift
     if reader >= cache.seekend - 0.25
        or cache.prior - cache_duration > 3000
        or cache_state["underrun"]
-       or cache.reader and math.abs(reader - cache.reader) > 7
-          and not seeking
     then
-        reset()
-        observe_tracks()
+        reload()
         track.restart = track.restart or mp.add_timeout(300, function() end)
         track.restart:resume()
-        msg.warn("Reloading stream due to host change.")
-        mp.command("playlist-play-index current")
-        return
     end
-    cache.reader = reader
 end
 
 -- detect stream switches (hostchange)
@@ -946,25 +954,26 @@ local function detect()
     end
     -- do not initiate a reload process if the track ids do not match
     -- or the track loading suspension interval is active
-    if not eq or track.suspend:is_enabled() then
+    if not eq then
         return
     end
-    -- watch the cache state outside the interval
-    -- and use it to decide when to reload
-    if not track.restart or not track.restart:is_enabled() then
+    if track.suspend:is_enabled() then
+        stabilize()
+        return
+    end
+    -- bifurcate
+    if track.restart and track.restart:is_enabled() then
+        track.restart:kill()
+        reload()
+    else
+        -- watch the cache state outside of the interval
+        -- and use it to decide when to reload
         reset()
         observe_tracks(false)
         cache.observed = true
         cache.prior = math.abs(mp.get_property_number("demuxer-cache-duration", 4E3))
         cache.seekend = get_seekable_cache()
-        mp.observe_property("demuxer-cache-state", "native", reload)
-    else
-        -- reload stream
-        track.restart:kill()
-        reset()
-        suspend()
-        msg.warn("Reloading stream due to host change.")
-        mp.command("playlist-play-index current")
+        mp.observe_property("demuxer-cache-state", "native", seamless)
     end
 end
 
@@ -1133,9 +1142,8 @@ function observe_tracks(state)
         mp.observe_property("track-list", "native", detect)
     elseif state == false then
         mp.unobserve_property(detect)
-        mp.unobserve_property(reload)
+        mp.unobserve_property(seamless)
         cache.prior = nil
-        cache.reader = nil
         local timer = track.restart and track.restart:kill()
     -- reset the state on manual reloads
     elseif cache.prior then
