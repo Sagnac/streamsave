@@ -146,6 +146,7 @@ local opts = {
     autostart = false,              -- <yes|no> automatically dump cache at start?
     autoend = "no",                 -- <no|HH:MM:SS> cache time to stop at
     hostchange = false,             -- <yes|no> use if the host changes mid stream
+    on_demand = false,              -- <yes|no> hostchange suboption, instant reloads
     quit = "no",                    -- <no|HH:MM:SS> quits player at specified time
     piecewise = false,              -- <yes|no> writes stream in parts with autoend
 }
@@ -516,9 +517,16 @@ local function hostchange_override(value)
         opts.hostchange = true
         print("Hostchange enabled")
         mp.osd_message("streamsave: hostchange enabled")
+    elseif value == "on_demand" then
+        opts.on_demand = not opts.on_demand
+        opts.hostchange = opts.on_demand or opts.hostchange
+        local status = opts.on_demand and "enabled" or "disabled"
+        print("Hostchange: On Demand " .. status)
+        mp.osd_message("streamsave: hostchange on_demand " .. status)
     else
-        msg.error("Invalid input '" .. value .. "'. Use yes or no.")
-        mp.osd_message("streamsave: invalid input; use yes or no")
+        local allowed = "yes, no, cycle, or on_demand"
+        msg.error("Invalid input '" .. value .. "'. Use " .. allowed .. ".")
+        mp.osd_message("streamsave: invalid input; use " .. allowed)
         return
     end
     if opts.hostchange ~= hostchange then
@@ -962,7 +970,7 @@ local function detect()
         return
     end
     -- bifurcate
-    if track.restart and track.restart:is_enabled() then
+    if track.restart and track.restart:is_enabled() or opts.on_demand then
         track.restart:kill()
         reload()
     else
