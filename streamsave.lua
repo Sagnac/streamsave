@@ -103,6 +103,8 @@ to stop at that time.
 The hostchange option enables an experimental workaround for DAI HLS .m3u8 streams in which the host changes.
 If enabled this will result in multiple files being output as the stream reloads.
 The autostart option must also be enabled in order to autosave these types of streams.
+The `on_demand` option is a suboption of the hostchange option which, if enabled, triggers reloads immediately across
+segment switches without waiting until playback has reached the end of the last segment.
 
 The `quit=HH:MM:SS` option will set a one shot timer from script load to the specified time,
 at which point the player will exit. This serves as a replacement for autoend when using hostchange.

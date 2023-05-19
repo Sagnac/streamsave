@@ -169,9 +169,16 @@ The `hostchange=yes` option enables an experimental workaround for DAI HLS .m3u8
 
 The `autostart` option must also be enabled in order to autosave these types of streams.
 
-This feature accepts associated `script-message` arguments of `yes`, `no`, and `cycle` which cycles between the first two.
+This feature accepts associated `script-message` arguments of `yes`, `no`, `on_demand` (see below), and `cycle` which cycles between the first two.
 
 See [`6d5c0e0`](https://github.com/Sagnac/streamsave/commit/6d5c0e04472bd04ad91b5148fb0d9ad5bd9bbb72 "streamsave commit 6d5c0e0") for more info.
+
+The `on_demand` option is a suboption of the hostchange option which, if enabled, triggers reloads immediately across segment switches without waiting until playback has reached the end of the last segment.
+
+This suboption can be toggled at runtime with:
+```
+script-message streamsave-hostchange on_demand
+```
 
 ----
 
