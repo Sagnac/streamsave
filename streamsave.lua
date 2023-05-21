@@ -972,8 +972,10 @@ local function detect()
         return
     end
     -- bifurcate
-    if track.restart and track.restart:is_enabled() or opts.on_demand then
+    if track.restart and track.restart:is_enabled() then
         track.restart:kill()
+        reload()
+    elseif opts.on_demand then
         reload()
     else
         -- watch the cache state outside of the interval
