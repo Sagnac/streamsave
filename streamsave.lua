@@ -385,7 +385,7 @@ function container(_, _, req)
            (audio == "aac" or not audio))
     then
         file.ext = ".mp4"
-    elseif (video == "vp8" or video == "vp9" or not video)
+    elseif (video == "vp8" or video == "vp9" or video == "av1" or not video)
        and (audio == "opus" or audio == "vorbis" or not audio)
     then
         file.ext = ".webm"
