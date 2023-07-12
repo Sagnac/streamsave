@@ -292,10 +292,12 @@ local function update_opts(changed)
     elseif changed["force_title"] then
         title_change(_, mp.get_property("media-title"), true)
     end
-    if opts.force_extension ~= "no" then
-        file.ext = opts.force_extension
-    elseif changed["force_extension"] then
-        container(_, _, true)
+    if changed["force_extension"] then
+        if opts.force_extension ~= "no" then
+            file.ext = opts.force_extension
+        else
+            container(_, _, true)
+        end
     end
     if changed["range_marks"] then
         if opts.range_marks then
@@ -394,6 +396,7 @@ function container(_, _, req)
     if not file_format then
         reset()
         observe_tracks()
+        file.ext = nil
         return end
     if opts.force_extension ~= "no" and not req then
         file.ext = opts.force_extension
