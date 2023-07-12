@@ -206,6 +206,25 @@ local segments = {}     -- chapter segments set for writing
 local chapter_list = {} -- initial chapter list
 local ab_chapters = {}  -- A-B loop point chapters
 
+local webm = {
+    vp8 = true,
+    vp9 = true,
+    av1 = true,
+    opus = true,
+    vorbis = true,
+    none = true,
+}
+
+local mp4 = {
+    h264 = true,
+    hevc = true,
+    av1 = true,
+    mp3 = true,
+    flac = true,
+    aac = true,
+    none = true,
+}
+
 local title_change
 local container
 local get_chapters
@@ -369,8 +388,8 @@ end
 
 -- Determine container for standard formats
 function container(_, _, req)
-    local audio = mp.get_property("audio-codec-name")
-    local video = mp.get_property("video-format")
+    local audio = mp.get_property("audio-codec-name", "none")
+    local video = mp.get_property("video-format", "none")
     local file_format = mp.get_property("file-format")
     if not file_format then
         reset()
@@ -380,15 +399,10 @@ function container(_, _, req)
         file.ext = opts.force_extension
         observe_cache()
         return end
-    if string.match(file_format, "mp4")
-       or ((video == "h264" or video == "av1" or not video) and
-           (audio == "aac" or not audio))
-    then
-        file.ext = ".mp4"
-    elseif (video == "vp8" or video == "vp9" or video == "av1" or not video)
-       and (audio == "opus" or audio == "vorbis" or not audio)
-    then
+    if webm[video] and webm[audio] then
         file.ext = ".webm"
+    elseif mp4[video] and mp4[audio] then
+        file.ext = ".mp4"
     else
         file.ext = ".mkv"
     end
@@ -1177,7 +1191,6 @@ useful if e.g. --script-opts=ytdl_hook-all_formats=yes
 or script-opts=ytdl_hook-use_manifests=yes ]]
 mp.observe_property("audio-codec-name", "string", container)
 mp.observe_property("video-format", "string", container)
-mp.observe_property("file-format", "string", container)
 
 --[[ Loading chapters can be slow especially if they're passed from
 an external file, so make sure existing chapters are not overwritten
