@@ -398,6 +398,7 @@ function container(_, _, req)
     if opts.force_extension ~= "no" and not req then
         file.ext = opts.force_extension
         observe_cache()
+        observe_tracks()
         return end
     if webm[video] and webm[audio] then
         file.ext = ".webm"
