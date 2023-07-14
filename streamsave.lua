@@ -287,10 +287,12 @@ local function update_opts(changed)
     validate_opts()
     -- expand mpv meta paths (e.g. ~~/directory)
     file.path = mp.command_native({"expand-path", opts.save_directory})
-    if opts.force_title ~= "no" then
-        file.title = opts.force_title
-    elseif changed["force_title"] then
-        title_change(_, mp.get_property("media-title"), true)
+    if changed["force_title"] then
+        if opts.force_title ~= "no" then
+            file.title = opts.force_title
+        elseif file.title then
+            title_change(_, mp.get_property("media-title"), true)
+        end
     end
     if changed["force_extension"] then
         if opts.force_extension ~= "no" then
@@ -333,7 +335,7 @@ local function update_opts(changed)
 end
 
 options.read_options(opts, "streamsave", update_opts)
-update_opts{}
+update_opts{force_title = true}
 
 -- dump mode switching
 local function mode_switch(value)
@@ -378,14 +380,11 @@ end
 
 -- Set the principal part of the file name using the media title
 function title_change(_, media_title, req)
-    if opts.force_title ~= "no" and not req then
-        file.title = opts.force_title
+    if opts.force_title ~= "no" and not req or not media_title then
         return end
-    if media_title then
-        -- Replacement of reserved file name characters on Windows
-        file.title = media_title:gsub("[\\/:*?\"<>|]", ".")
-        file.oldtitle = nil
-    end
+    -- Replacement of reserved file name characters on Windows
+    file.title = media_title:gsub("[\\/:*?\"<>|]", ".")
+    file.oldtitle = nil
 end
 
 -- Determine container for standard formats
