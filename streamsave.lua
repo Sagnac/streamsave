@@ -153,6 +153,22 @@ local opts = {
     piecewise = false,              -- <yes|no> writes stream in parts with autoend
 }
 
+local modes = {
+    ab = true,
+    current = true,
+    continuous = true,
+    chapter = true,
+    segments = true,
+}
+
+local labels = {
+    increment = true,
+    range = true,
+    timestamp = true,
+    overwrite = true,
+    chapter = true,
+}
+
 -- for internal use
 local file = {
     name,            -- file name (full path to file)
@@ -246,23 +262,13 @@ local function convert_time(value)
 end
 
 local function validate_opts()
-    if opts.output_label ~= "increment" and
-       opts.output_label ~= "range" and
-       opts.output_label ~= "timestamp" and
-       opts.output_label ~= "overwrite" and
-       opts.output_label ~= "chapter"
-    then
-        msg.error("Invalid output_label '" .. opts.output_label .. "'")
-        opts.output_label = "increment"
-    end
-    if opts.dump_mode ~= "ab" and
-       opts.dump_mode ~= "current" and
-       opts.dump_mode ~= "continuous" and
-       opts.dump_mode ~= "chapter" and
-       opts.dump_mode ~= "segments"
-    then
+    if not modes[opts.dump_mode] then
         msg.error("Invalid dump_mode '" .. opts.dump_mode .. "'")
         opts.dump_mode = "ab"
+    end
+    if not labels[opts.output_label] then
+        msg.error("Invalid output_label '" .. opts.output_label .. "'")
+        opts.output_label = "increment"
     end
     if opts.autoend ~= "no" then
         if not cache.part then
