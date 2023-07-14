@@ -202,6 +202,7 @@ local track = {
     suspend,         -- suspension interval on track-list changes
 }
 
+local update = {}       -- option update functions, {mode, label, on_demand} ⊈ update
 local segments = {}     -- chapter segments set for writing
 local chapter_list = {} -- initial chapter list
 local ab_chapters = {}  -- A-B loop point chapters
@@ -283,59 +284,78 @@ local function validate_opts()
     end
 end
 
-local function update_opts(changed)
-    validate_opts()
+function update.save_directory()
     -- expand mpv meta paths (e.g. ~~/directory)
     file.path = mp.command_native({"expand-path", opts.save_directory})
-    if changed["force_title"] then
-        if opts.force_title ~= "no" then
-            file.title = opts.force_title
-        elseif file.title then
-            title_change(_, mp.get_property("media-title"), true)
+end
+
+function update.force_title()
+    if opts.force_title ~= "no" then
+        file.title = opts.force_title
+    elseif file.title then
+        title_change(_, mp.get_property("media-title"), true)
+    end
+end
+
+function update.force_extension()
+    if opts.force_extension ~= "no" then
+        file.ext = opts.force_extension
+    else
+        container(_, _, true)
+    end
+end
+
+function update.range_marks()
+    if opts.range_marks then
+        chapter_points()
+    else
+        if not get_chapters() then
+            mp.set_property_native("chapter-list", chapter_list)
         end
+        ab_chapters = {}
     end
-    if changed["force_extension"] then
-        if opts.force_extension ~= "no" then
-            file.ext = opts.force_extension
-        else
-            container(_, _, true)
-        end
-    end
-    if changed["range_marks"] then
-        if opts.range_marks then
-            chapter_points()
-        else
-            if not get_chapters() then
-                mp.set_property_native("chapter-list", chapter_list)
-            end
-            ab_chapters = {}
-        end
-    end
-    if changed["autoend"] then
-        cache.endsec = convert_time(opts.autoend)
-        observe_cache()
-    end
-    if changed["autostart"] then
-        observe_cache()
-    end
-    if changed["hostchange"] then
-        observe_tracks(opts.hostchange)
-    end
-    if changed["quit"] then
-        autoquit()
-    end
-    if changed["piecewise"] and not opts.piecewise then
+end
+
+function update.autoend()
+    cache.endsec = convert_time(opts.autoend)
+    observe_cache()
+end
+
+function update.autostart()
+    observe_cache()
+end
+
+function update.hostchange()
+    observe_tracks(opts.hostchange)
+end
+
+function update.quit()
+    autoquit()
+end
+
+function update.piecewise()
+    if not opts.piecewise then
         cache.part = 0
-    elseif changed["piecewise"] then
+    else
         cache.endsec = convert_time(opts.autoend)
     end
-    if changed["track_packets"] then
-        packet_events(opts.track_packets)
+end
+
+function update.track_packets()
+    packet_events(opts.track_packets)
+end
+
+local function update_opts(changed)
+    validate_opts()
+    for opt, _ in pairs(changed) do
+        if update[opt] then
+            update[opt]()
+        end
     end
 end
 
 options.read_options(opts, "streamsave", update_opts)
-update_opts{force_title = true}
+update_opts{force_title = true, save_directory = true}
 
 -- dump mode switching
 local function mode_switch(value)
