@@ -440,9 +440,16 @@ function container(_, _, req)
     file.oldext = nil
 end
 
-local function format_override(ext)
+local function format_override(ext, force)
     ext = ext or file.ext
     file.oldext = file.oldext or file.ext
+    if force == "force" then
+        opts.force_extension = ext
+        file.ext = opts.force_extension
+        print("file extension globally forced to " .. file.ext)
+        mp.osd_message("streamsave: file extension globally forced to " .. file.ext)
+        return
+    end
     if ext == "revert" and file.ext == opts.force_extension then
         container(_, _, true)
     elseif ext == "revert" and opts.force_extension ~= "no" then
@@ -456,9 +463,16 @@ local function format_override(ext)
     mp.osd_message("streamsave: file extension changed to " .. file.ext)
 end
 
-local function title_override(title)
+local function title_override(title, force)
     title = title or file.title
     file.oldtitle = file.oldtitle or file.title
+    if force == "force" then
+        opts.force_title = title
+        file.title = opts.force_title
+        print("title globally forced to " .. file.title)
+        mp.osd_message("streamsave: title globally forced to " .. file.title)
+        return
+    end
     if title == "revert" and file.title == opts.force_title then
         title_change(_, mp.get_property("media-title"), true)
     elseif title == "revert" and opts.force_title ~= "no" then
