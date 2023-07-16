@@ -440,6 +440,10 @@ function container(_, _, req)
     file.oldext = nil
 end
 
+local function cycle_bool_on_missing_arg(arg, opt)
+    return arg or (not opt and "yes" or "no")
+end
+
 local function format_override(ext, force)
     ext = ext or file.ext
     file.oldext = file.oldext or file.ext
@@ -520,7 +524,8 @@ local function label_override(value)
 end
 
 local function marks_override(value)
-    if not value or value == "no" then
+    value = cycle_bool_on_missing_arg(value, opts.range_marks)
+    if value == "no" then
         opts.range_marks = false
         if not get_chapters() then
             mp.set_property_native("chapter-list", chapter_list)
@@ -540,7 +545,8 @@ local function marks_override(value)
 end
 
 local function autostart_override(value)
-    if not value or value == "no" then
+    value = cycle_bool_on_missing_arg(value, opts.autostart)
+    if value == "no" then
         opts.autostart = false
         print("Autostart disabled")
         mp.osd_message("streamsave: autostart disabled")
@@ -567,8 +573,8 @@ end
 
 local function hostchange_override(value)
     local hostchange = opts.hostchange
-    value = value == "cycle" and (not opts.hostchange and "yes" or "no") or value
-    if not value or value == "no" then
+    value = cycle_bool_on_missing_arg(value, hostchange)
+    if value == "no" then
         opts.hostchange = false
         print("Hostchange disabled")
         mp.osd_message("streamsave: hostchange disabled")
@@ -583,7 +589,7 @@ local function hostchange_override(value)
         print("Hostchange: On Demand " .. status)
         mp.osd_message("streamsave: hostchange on_demand " .. status)
     else
-        local allowed = "yes, no, cycle, or on_demand"
+        local allowed = "yes, no, or on_demand"
         msg.error("Invalid input '" .. value .. "'. Use " .. allowed .. ".")
         mp.osd_message("streamsave: invalid input; use " .. allowed)
         return
@@ -602,7 +608,8 @@ local function quit_override(value)
 end
 
 local function piecewise_override(value)
-    if not value or value == "no" then
+    value = cycle_bool_on_missing_arg(value, opts.piecewise)
+    if value == "no" then
         opts.piecewise = false
         cache.part = 0
         print("Piecewise dumping disabled")
@@ -620,10 +627,8 @@ end
 
 local function packet_override(value)
     local track_packets = opts.track_packets
-    if value == "cycle" then
-        value = not track_packets and "yes" or "no"
-    end
-    if not value or value == "no" then
+    value = cycle_bool_on_missing_arg(value, track_packets)
+    if value == "no" then
         opts.track_packets = false
         print("Track packets disabled")
         mp.osd_message("streamsave: track packets disabled")
