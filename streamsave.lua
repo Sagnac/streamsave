@@ -662,8 +662,9 @@ local function loop_range()
     return loop.range
 end
 
-local function set_name(label)
-    return file.path .. "/" .. file.title .. label .. file.ext
+local function set_name(label, title)
+    title = title or file.title
+    return file.path .. "/" .. title .. label .. file.ext
 end
 
 local function increment_filename()
@@ -829,12 +830,12 @@ local function cache_write(mode, quiet, chapter)
     elseif opts.output_label == "range" then
         range_stamp(mode)
     elseif opts.output_label == "timestamp" then
-        file.name = set_name(-os.time())
+        file.name = set_name(os.time(), "")
     elseif opts.output_label == "overwrite" then
         file.name = set_name("")
     elseif opts.output_label == "chapter" then
         if segments[1] then
-            file.name = file.path .. "/" .. segments[1]["title"] .. file.ext
+            file.name = set_name(segments[1]["title"], "")
         else
             increment_filename()
         end
