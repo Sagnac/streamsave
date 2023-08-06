@@ -404,12 +404,16 @@ local function mode_switch(value)
     end
 end
 
+local function sanitize(title)
+    -- Replacement of reserved file name characters on Windows
+    return title:gsub("[\\/:*?\"<>|]", ".")
+end
+
 -- Set the principal part of the file name using the media title
 function title_change(_, media_title, req)
     if opts.force_title ~= "no" and not req or not media_title then
         return end
-    -- Replacement of reserved file name characters on Windows
-    file.title = media_title:gsub("[\\/:*?\"<>|]", ".")
+    file.title = sanitize(media_title)
     file.oldtitle = nil
 end
 
@@ -888,7 +892,7 @@ local function cache_write(mode, quiet, chapter)
         file.name = set_name("")
     elseif opts.output_label == "chapter" then
         if segments[1] then
-            file.name = set_name(segments[1]["title"], "")
+            file.name = set_name(sanitize(segments[1]["title"]), "")
         else
             increment_filename()
         end
