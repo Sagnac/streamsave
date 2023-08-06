@@ -700,6 +700,54 @@ local function range_stamp(mode)
     end
 end
 
+local function get_ranges()
+    local cache_state = mp.get_property_native("demuxer-cache-state", {})
+    local ranges = cache_state["seekable-ranges"] or {}
+    return cache_state, ranges
+end
+
+local function cache_check(chapter)
+    local cache_state, seekable_ranges = get_ranges()
+    local chapter_cached
+    if chapter == #chapter_list then
+        if not cache_state["eof-cached"] then
+            chapter_cached = false
+        else
+            chapter_cached = true
+            local chapt_end = 0
+            for _, range in ipairs(seekable_ranges) do
+                if segments[1]["start"] < range["start"] then
+                    chapter_cached = false
+                    break
+                end
+                if range["end"] > chapt_end then
+                    chapt_end = range["end"]
+                end
+            end
+            segments[1]["end"] = chapt_end
+        end
+    else
+        chapter_cached = false
+        local chapt_start, chapt_end = segments[1]["start"], segments[1]["end"]
+        for _, range in ipairs(seekable_ranges) do
+            if chapt_start >= range["start"] and chapt_end <= range["end"] then
+                chapter_cached = true
+                break
+            end
+        end
+    end
+    if not chapter_cached then
+        segments = {}
+        msg.error("chapter not fully cached")
+    end
+    return chapter_cached
+end
+
+local function fully_cached()
+    local cache_state, ranges = get_ranges()
+    return cache_state["bof-cached"] and cache_state["eof-cached"] and #ranges == 1
+end
+
 local function write_chapter(chapter)
     get_chapters()
     if chapter_list[chapter] or chapter == 0 then
@@ -707,12 +755,12 @@ local function write_chapter(chapter)
             ["start"] = chapter == 0 and 0 or chapter_list[chapter]["time"],
             ["end"] = chapter_list[chapter + 1]
                       and chapter_list[chapter + 1]["time"]
-                      or mp.get_property_number("duration", "no"),
+                      or "no",
             ["title"] = chapter .. ". " .. (chapter ~= 0
                         and chapter_list[chapter]["title"] or file.title)
         }
         print("Writing chapter " .. chapter .. " ....")
-        return true
+        return cache_check(chapter)
     else
         msg.error("Chapter not found.")
     end
@@ -735,7 +783,7 @@ local function extract_segments(n)
     end
     table.insert(segments, {
         ["start"] = chapter_list[n]["time"],
-        ["end"] = mp.get_property_number("duration", "no"),
+        ["end"] = get_seekable_cache(),
         ["title"] = n .. ". " .. (chapter_list[n]["title"] or file.title)
     })
     print("Writing out all " .. #segments .. " chapters to separate files ....")
@@ -809,6 +857,10 @@ local function cache_write(mode, quiet, chapter)
     range_flip()
     -- set the output list for the chapter modes
     if mode == "segments" and not segments[1] then
+        if not fully_cached() then
+            msg.error("segments mode: stream must be fully cached")
+            return
+        end
         get_chapters()
         local n = #chapter_list
         if n > 0 then
@@ -816,7 +868,8 @@ local function cache_write(mode, quiet, chapter)
             quiet = true
             mp.osd_message("Cache dumping started.")
         else
-            mode = "continuous"
+            msg.error("segments mode: stream has no chapters")
+            return
         end
     elseif mode == "chapter" and not segments[1] then
         chapter = chapter or mp.get_property_number("chapter", -1) + 1
@@ -976,8 +1029,7 @@ end
 
 function get_seekable_cache(prop, range_check)
     -- use the seekable part of the cache for more accurate timestamps
-    local cache_state = mp.get_property_native("demuxer-cache-state", {})
-    local seekable_ranges = cache_state["seekable-ranges"] or {}
+    local cache_state, seekable_ranges = get_ranges()
     if prop then
         if range_check ~= false and
            (#seekable_ranges == 0
