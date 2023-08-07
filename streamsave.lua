@@ -477,6 +477,7 @@ local function title_override(title, force)
     if force == "force" then
         opts.force_title = title
         file.title = opts.force_title
+        opts.output_label = "increment"
         print("title globally forced to " .. file.title)
         mp.osd_message("streamsave: title globally forced to " .. file.title)
         return
