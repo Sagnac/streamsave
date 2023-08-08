@@ -711,25 +711,16 @@ local function get_ranges()
     return cache_state, ranges
 end
 
-local function cache_check(chapter)
+local function cache_check(end_chapter)
     local cache_state, seekable_ranges = get_ranges()
     local chapter_cached
-    if chapter == #chapter_list then
-        if not cache_state["eof-cached"] then
-            chapter_cached = false
-        else
-            chapter_cached = true
-            local chapt_end = 0
-            for _, range in ipairs(seekable_ranges) do
-                if segments[1]["start"] < range["start"] then
-                    chapter_cached = false
-                    break
-                end
-                if range["end"] > chapt_end then
-                    chapt_end = range["end"]
-                end
+    if end_chapter or segments[1]["end"] == "no" then
+        chapter_cached = true
+        for _, range in ipairs(seekable_ranges) do
+            if segments[#segments]["start"] < range["start"] then
+                chapter_cached = false
+                break
             end
-            segments[1]["end"] = chapt_end
         end
     else
         chapter_cached = false
@@ -741,7 +732,7 @@ local function cache_check(chapter)
             end
         end
     end
-    if not chapter_cached then
+    if not end_chapter and not chapter_cached then
         segments = {}
         msg.error("chapter not fully cached")
     end
@@ -750,7 +741,7 @@ end
 
 local function fully_cached()
     local cache_state, ranges = get_ranges()
-    return cache_state["bof-cached"] and cache_state["eof-cached"] and #ranges == 1
+    return cache_state["bof-cached"] and cache_check(true) and #ranges == 1
 end
 
 local function write_chapter(chapter)
@@ -765,7 +756,7 @@ local function write_chapter(chapter)
                         and chapter_list[chapter]["title"] or file.title)
         }
         print("Writing chapter " .. chapter .. " ....")
-        return cache_check(chapter)
+        return cache_check()
     else
         msg.error("Chapter not found.")
     end
@@ -788,7 +779,7 @@ local function extract_segments(n)
     end
     table.insert(segments, {
         ["start"] = chapter_list[n]["time"],
-        ["end"] = get_seekable_cache(),
+        ["end"] = "no",
         ["title"] = n .. ". " .. (chapter_list[n]["title"] or file.title)
     })
     print("Writing out all " .. #segments .. " chapters to separate files ....")
@@ -862,14 +853,15 @@ local function cache_write(mode, quiet, chapter)
     range_flip()
     -- set the output list for the chapter modes
     if mode == "segments" and not segments[1] then
-        if not fully_cached() then
-            msg.error("segments mode: stream must be fully cached")
-            return
-        end
         get_chapters()
         local n = #chapter_list
         if n > 0 then
             extract_segments(n)
+            if not fully_cached() then
+                segments = {}
+                msg.error("segments mode: stream must be fully cached")
+                return
+            end
             quiet = true
             mp.osd_message("Cache dumping started.")
         else
