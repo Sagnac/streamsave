@@ -745,7 +745,7 @@ local function fully_cached()
 end
 
 local function write_chapter(chapter)
-    get_chapters()
+    local chapter_list = mp.get_property_native("chapter-list", {})
     if chapter_list[chapter] or chapter == 0 then
         segments[1] = {
             ["start"] = chapter == 0 and 0 or chapter_list[chapter]["time"],
@@ -762,7 +762,7 @@ local function write_chapter(chapter)
     end
 end
 
-local function extract_segments(n)
+local function extract_segments(n, chapter_list)
     for i = 1, n - 1 do
         segments[i] = {
             ["start"] = chapter_list[i]["time"],
@@ -853,10 +853,10 @@ local function cache_write(mode, quiet, chapter)
     range_flip()
     -- set the output list for the chapter modes
     if mode == "segments" and not segments[1] then
-        get_chapters()
+        local chapter_list = mp.get_property_native("chapter-list", {})
         local n = #chapter_list
         if n > 0 then
-            extract_segments(n)
+            extract_segments(n, chapter_list)
             if not fully_cached() then
                 segments = {}
                 msg.error("segments mode: stream must be fully cached")
