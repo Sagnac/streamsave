@@ -708,11 +708,20 @@ end
 local function get_ranges()
     local cache_state = mp.get_property_native("demuxer-cache-state", {})
     local ranges = cache_state["seekable-ranges"] or {}
-    return cache_state, ranges
+    return ranges, cache_state
+end
+
+local function get_cache_start()
+    local seekable_ranges = get_ranges()
+    local seekable_starts = {0}
+    for i, range in ipairs(seekable_ranges) do
+        seekable_starts[i] = range["start"]
+    end
+    return math.min(math.huge, unpack(seekable_starts))
 end
 
 local function cache_check(n)
-    local cache_state, seekable_ranges = get_ranges()
+    local seekable_ranges, cache_state = get_ranges()
     local chapter = segments[n]
     local chapt_start, chapt_end = chapter["start"], chapter["end"]
     local chapter_cached = false
@@ -729,11 +738,11 @@ local function cache_check(n)
         segments = {}
         msg.error("chapter must be fully cached")
     end
-    return chapter_cached, cache_state, seekable_ranges
+    return chapter_cached, seekable_ranges, cache_state
 end
 
 local function fully_cached(n)
-    local up_to_end, cache_state, ranges = cache_check(n)
+    local up_to_end, ranges, cache_state = cache_check(n)
     return cache_state["bof-cached"] and up_to_end and #ranges == 1
 end
 
@@ -741,7 +750,8 @@ local function write_chapter(chapter)
     local chapter_list = mp.get_property_native("chapter-list", {})
     if chapter_list[chapter] or chapter == 0 then
         segments[1] = {
-            ["start"] = chapter == 0 and 0 or chapter_list[chapter]["time"],
+            ["start"] = chapter == 0 and get_cache_start()
+                        or chapter_list[chapter]["time"],
             ["end"] = chapter_list[chapter + 1]
                       and chapter_list[chapter + 1]["time"]
                       or "no",
@@ -763,9 +773,10 @@ local function extract_segments(n, chapter_list)
             ["title"] = i .. ". " .. (chapter_list[i]["title"] or file.title)
         }
     end
-    if chapter_list[1]["time"] ~= 0 then
+    local start_time = get_cache_start()
+    if chapter_list[1]["time"] ~= start_time then
         table.insert(segments, 1, {
-            ["start"] = 0,
+            ["start"] = start_time,
             ["end"] = chapter_list[1]["time"],
             ["title"] = "0. " .. file.title
         })
@@ -1019,7 +1030,7 @@ end
 
 function get_seekable_cache(prop, range_check)
     -- use the seekable part of the cache for more accurate timestamps
-    local cache_state, seekable_ranges = get_ranges()
+    local seekable_ranges, cache_state = get_ranges()
     if prop then
         if range_check ~= false and
            (#seekable_ranges == 0
