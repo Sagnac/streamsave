@@ -711,15 +711,6 @@ local function get_ranges()
     return ranges, cache_state
 end
 
-local function get_cache_start()
-    local seekable_ranges = get_ranges()
-    local seekable_starts = {0}
-    for i, range in ipairs(seekable_ranges) do
-        seekable_starts[i] = range["start"]
-    end
-    return math.min(math.huge, unpack(seekable_starts))
-end
-
 local function cache_check(n)
     local seekable_ranges, cache_state = get_ranges()
     local chapter = segments[n]
@@ -750,8 +741,7 @@ local function write_chapter(chapter)
     local chapter_list = mp.get_property_native("chapter-list", {})
     if chapter_list[chapter] or chapter == 0 then
         segments[1] = {
-            ["start"] = chapter == 0 and get_cache_start()
-                        or chapter_list[chapter]["time"],
+            ["start"] = chapter == 0 and 0 or chapter_list[chapter]["time"],
             ["end"] = chapter_list[chapter + 1]
                       and chapter_list[chapter + 1]["time"]
                       or "no",
@@ -773,10 +763,9 @@ local function extract_segments(n, chapter_list)
             ["title"] = i .. ". " .. (chapter_list[i]["title"] or file.title)
         }
     end
-    local start_time = get_cache_start()
-    if chapter_list[1]["time"] ~= start_time then
+    if chapter_list[1]["time"] > 0.1 then
         table.insert(segments, 1, {
-            ["start"] = start_time,
+            ["start"] = 0,
             ["end"] = chapter_list[1]["time"],
             ["title"] = "0. " .. file.title
         })
