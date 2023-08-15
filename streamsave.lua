@@ -253,6 +253,7 @@ local autoquit
 local packet_events
 local observe_cache
 local observe_tracks
+local chapt_threshold = 0.1 -- initial chapter time treated as matching cache start
 
 local function convert_time(value)
     local H, M, S = value:match("^(%d+):([0-5]%d):([0-5]%d)$")
@@ -711,9 +712,9 @@ local function get_ranges()
     return ranges, cache_state
 end
 
-local function cache_check(n)
+local function cache_check(k)
     local seekable_ranges, cache_state = get_ranges()
-    local chapter = segments[n]
+    local chapter = segments[k]
     local chapt_start, chapt_end = chapter["start"], chapter["end"]
     local chapter_cached = false
     if chapt_end == "no" then
@@ -725,26 +726,37 @@ local function cache_check(n)
             break
         end
     end
-    if n == 1 and not chapter_cached then
+    if k == 1 and not chapter_cached then
         segments = {}
         msg.error("chapter must be fully cached")
     end
     return chapter_cached, seekable_ranges, cache_state
 end
 
-local function fully_cached(n)
-    local up_to_end, ranges, cache_state = cache_check(n)
+local function fully_cached(k)
+    local up_to_end, ranges, cache_state
+    if k == 1 then
+        up_to_end = true
+        ranges, cache_state = get_ranges()
+    else
+        up_to_end, ranges, cache_state = cache_check(k)
+    end
     return cache_state["bof-cached"] and up_to_end and #ranges == 1
 end
 
 local function write_chapter(chapter)
     local chapter_list = mp.get_property_native("chapter-list", {})
     if chapter_list[chapter] or chapter == 0 then
+        local end_chapt_point
+        local next_chapt = chapter_list[chapter + 1]
+        if next_chapt and next_chapt["time"] > chapt_threshold then
+            end_chapt_point = next_chapt["time"]
+        else
+            end_chapt_point = "no"
+        end
         segments[1] = {
             ["start"] = chapter == 0 and 0 or chapter_list[chapter]["time"],
-            ["end"] = chapter_list[chapter + 1]
-                      and chapter_list[chapter + 1]["time"]
-                      or "no",
+            ["end"] = end_chapt_point,
             ["title"] = chapter .. ". " .. (chapter ~= 0
                         and chapter_list[chapter]["title"] or file.title)
         }
@@ -763,7 +775,7 @@ local function extract_segments(n, chapter_list)
             ["title"] = i .. ". " .. (chapter_list[i]["title"] or file.title)
         }
     end
-    if chapter_list[1]["time"] > 0.1 then
+    if chapter_list[1]["time"] > chapt_threshold then
         table.insert(segments, 1, {
             ["start"] = 0,
             ["end"] = chapter_list[1]["time"],
@@ -775,7 +787,9 @@ local function extract_segments(n, chapter_list)
         ["end"] = "no",
         ["title"] = n .. ". " .. (chapter_list[n]["title"] or file.title)
     })
-    print("Writing out all " .. #segments .. " chapters to separate files ....")
+    local k = #segments
+    print("Writing out all " .. k .. " chapters to separate files ....")
+    return k
 end
 
 local function write_set(mode, file_name, file_pos, quiet)
@@ -849,8 +863,8 @@ local function cache_write(mode, quiet, chapter)
         local chapter_list = mp.get_property_native("chapter-list", {})
         local n = #chapter_list
         if n > 0 then
-            extract_segments(n, chapter_list)
-            if not fully_cached(n) then
+            local k = extract_segments(n, chapter_list)
+            if not fully_cached(k) then
                 segments = {}
                 msg.error("segments mode: stream must be fully cached")
                 return
