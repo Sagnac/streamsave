@@ -253,7 +253,6 @@ local autoquit
 local packet_events
 local observe_cache
 local observe_tracks
-local chapt_threshold = 0.1 -- initial chapter time treated as matching cache start
 
 local function convert_time(value)
     local H, M, S = value:match("^(%d+):([0-5]%d):([0-5]%d)$")
@@ -712,6 +711,28 @@ local function get_ranges()
     return ranges, cache_state
 end
 
+local function get_cache_start()
+    local seekable_ranges = get_ranges()
+    local seekable_starts = {0}
+    for i, range in ipairs(seekable_ranges) do
+        seekable_starts[i] = range["start"] or 0
+    end
+    return math.min(unpack(seekable_starts))
+end
+
+local function adjust_initial_chapter(chapter_list)
+    if not next(chapter_list) then
+        return
+    end
+    local threshold = 0.1
+    local set_zeroth = chapter_list[1]["time"] > threshold
+    local cache_start = get_cache_start()
+    if not set_zeroth and cache_start <= threshold then
+        chapter_list[1]["time"] = cache_start
+    end
+    return set_zeroth, cache_start
+end
+
 local function cache_check(k)
     local seekable_ranges, cache_state = get_ranges()
     local chapter = segments[k]
@@ -734,30 +755,22 @@ local function cache_check(k)
 end
 
 local function fully_cached(k)
-    local up_to_end, ranges, cache_state
-    if k == 1 then
-        up_to_end = true
-        ranges, cache_state = get_ranges()
-    else
-        up_to_end, ranges, cache_state = cache_check(k)
-    end
+    local up_to_end, ranges, cache_state = cache_check(k)
     return cache_state["bof-cached"] and up_to_end and #ranges == 1
 end
 
 local function write_chapter(chapter)
     local chapter_list = mp.get_property_native("chapter-list", {})
-    if chapter_list[chapter] or chapter == 0 then
-        local end_chapt_point
-        local next_chapt = chapter_list[chapter + 1]
-        if next_chapt and next_chapt["time"] > chapt_threshold then
-            end_chapt_point = next_chapt["time"]
-        else
-            end_chapt_point = "no"
-        end
+    local set_zeroth, cache_start = adjust_initial_chapter(chapter_list)
+    local zeroth_chapter = chapter == 0 and set_zeroth
+    if chapter_list[chapter] or zeroth_chapter then
         segments[1] = {
-            ["start"] = chapter == 0 and 0 or chapter_list[chapter]["time"],
-            ["end"] = end_chapt_point,
-            ["title"] = chapter .. ". " .. (chapter ~= 0
+            ["start"] = zeroth_chapter and cache_start
+                        or chapter_list[chapter]["time"],
+            ["end"] = chapter_list[chapter + 1]
+                      and chapter_list[chapter + 1]["time"]
+                      or "no",
+            ["title"] = chapter .. ". " .. (not zeroth_chapter
                         and chapter_list[chapter]["title"] or file.title)
         }
         print("Writing chapter " .. chapter .. " ....")
@@ -768,6 +781,7 @@ local function write_chapter(chapter)
 end
 
 local function extract_segments(n, chapter_list)
+    local set_zeroth, cache_start = adjust_initial_chapter(chapter_list)
     for i = 1, n - 1 do
         segments[i] = {
             ["start"] = chapter_list[i]["time"],
@@ -775,9 +789,9 @@ local function extract_segments(n, chapter_list)
             ["title"] = i .. ". " .. (chapter_list[i]["title"] or file.title)
         }
     end
-    if chapter_list[1]["time"] > chapt_threshold then
+    if set_zeroth then
         table.insert(segments, 1, {
-            ["start"] = 0,
+            ["start"] = cache_start,
             ["end"] = chapter_list[1]["time"],
             ["title"] = "0. " .. file.title
         })
