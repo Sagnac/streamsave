@@ -504,7 +504,7 @@ local function path_override(value)
         opts.save_directory = value
     end
     file.path = mp.command_native({"expand-path", opts.save_directory})
-    print("Output directory changed to " .. opts.save_directory)
+    print("Output directory changed to " .. file.path)
     mp.osd_message("streamsave: directory changed to " .. opts.save_directory)
 end
 
