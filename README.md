@@ -41,12 +41,18 @@ If you want to use with local files set `cache=yes` in mpv.conf
 
 ----
 
-mpv's `script-message` command can be used at runtime to set the dump mode, override the output title or file extension, change the save directory, or switch the output label.
+There's a lighter base version of the script with the automation, packet tracking, chapter modes, and extra script-message features stripped at the [`lite`](../../tree/lite) branch.
+
+----
+
+mpv's `script-message` command can be used to change the user options at runtime and temporarily override the output title or file extension. Boolean style options (`yes`/`no`) can be cycled by omitting the third argument.
 If you override the title, the file extension, or the directory, the `revert` argument can be used to set it back to the default value.
 
 Examples:
 ```
+script-message streamsave-marks
 script-message streamsave-mode continuous
+script-message streamsave-title "Global Title" force
 script-message streamsave-title "Example Title"
 script-message streamsave-extension .mkv
 script-message streamsave-extension revert
@@ -60,7 +66,7 @@ script-message streamsave-label range
 
 Options are specified in `~~/script-opts/streamsave.conf`
 
-Runtime changes to all user options are supported via the `script-opts` property by using mpv's `set` or `change-list` input commands and the `streamsave-` prefix.
+Runtime updates to all user options are also supported via the `script-opts` property by using mpv's `set` or `change-list` input commands and the `streamsave-` prefix.
 
 ----
 
@@ -87,7 +93,7 @@ If you want continuous dumping with a different starting point use the default A
 
 `dump_mode=segments` writes out all chapters to individual files.
 
-Note that for these last two you must have the chapter(s) you wish to output fully cached in whole prior to writing in order for them to be dumped in their entirety as the chapter modes do not utilize continuous writing.
+Note that for these last two you must have the chapter(s) you wish to output fully cached in whole prior to writing; the last chapter, however, utilizes continuous writing.
 
 If you wish to output a single chapter using a numerical input instead you can specify it with a command at runtime:
 ```
@@ -102,13 +108,13 @@ The default uses iterated step increments for every file output; i.e. file-1.mkv
 
 There are 4 other choices:
 
-`output_label=timestamp` will append Unix timestamps to the file name.
+`output_label=timestamp` will use a Unix timestamp for the file name.
 
 `output_label=range` will tag the file with the A-B loop range instead using the format HH.MM.SS (e.g. file-\[00.15.00 - 00.20.00\].mkv)
 
 `output_label=overwrite` will not tag the file and will overwrite any existing files with the same name.
 
-`output_label=chapter` uses the chapter title for the file name if using one of the chapter modes.
+`output_label=chapter` uses the chapter title for the file name if using one of the chapter modes; with this label the script will not check for existing files with the same name so be careful with overwrites.
 
 ----
 
@@ -116,6 +122,12 @@ The `force_extension` option allows you to force a preferred format and sidestep
 
 If using this option it is recommended that a highly flexible container is used (e.g. Matroska).<br>
 The format is specified as the extension including the dot (e.g. `force_extension=.mkv`).
+
+This option can be set at runtime with `script-message` by passing `force` as an argument; e.g.:
+```
+script-message streamsave-extension .mkv force
+```
+This changes the format for the current stream and all subsequently loaded streams (without `force` the setting is a one-shot setting for the present stream).
 
 If this option is set, `script-message streamsave-extension revert` will run the automatic determination at runtime; running this command again will reset the extension to what's specified in `force_extension`.
 
@@ -127,7 +139,7 @@ The `force_title` option will set the title used for the filename. By default th
 
 This is specified without double quote marks in streamsave.conf, e.g. `force_title=Example Title`.
 
-The `output_label` is still used here and file overwrites are prevented if desired. Changing the filename title to the `media-title` is still possible at runtime by using the `revert` argument, as in the `force_extension` example.
+The `output_label` is still used here and file overwrites are prevented if desired. Changing the filename title to the `media-title` is still possible at runtime by using the `revert` argument, as in the `force_extension` example. The secondary `force` argument is supported as well when passing an extension and not using `revert`.
 
 ----
 
@@ -143,7 +155,7 @@ You can also enable this feature at runtime using `script-message streamsave-mar
 
 ----
 
-The `track_packets=yes` option adds chapters to positions where packet loss occurs for HLS streams. This gives you a visual sense for where the video is choppy due to low bandwidth or during times of network congestion and makes it easy to preserve continuity and trim around skips which usually cause invalid timestamps.
+The `track_packets=yes` setting adds chapters to positions where packet loss occurs for HLS streams. This gives you a visual sense for where the video is choppy due to low bandwidth or during times of network congestion and makes it easy to preserve continuity and trim around skips which usually cause invalid timestamps.
 
 ----
 
@@ -165,13 +177,11 @@ Set `autoend` to a time format of the form `HH:MM:SS` (e.g. `autoend=01:20:08`) 
 
 ----
 
-The `hostchange=yes` option enables an experimental workaround for DAI HLS .m3u8 streams in which the host changes. If enabled this will result in multiple files being output as the stream reloads.
+The `hostchange=yes` setting enables an experimental workaround for DAI HLS .m3u8 streams in which the host changes. If enabled this will result in multiple files being output as the stream reloads.
 
 The `autostart` option must also be enabled in order to autosave these types of streams.
 
-This feature accepts associated `script-message` arguments of `yes`, `no`, `on_demand` (see below), and `cycle` which cycles between the first two.
-
-See [`6d5c0e0`](https://github.com/Sagnac/streamsave/commit/6d5c0e04472bd04ad91b5148fb0d9ad5bd9bbb72 "streamsave commit 6d5c0e0") for more info.
+This feature accepts associated `script-message` arguments of `yes`, `no`, and `on_demand`.
 
 The `on_demand` option is a suboption of the hostchange option which, if enabled, triggers reloads immediately across segment switches without waiting until playback has reached the end of the last segment.
 
@@ -180,9 +190,11 @@ This suboption can be toggled at runtime with:
 script-message streamsave-hostchange on_demand
 ```
 
+See [`6d5c0e0`](https://github.com/Sagnac/streamsave/commit/6d5c0e04472bd04ad91b5148fb0d9ad5bd9bbb72 "streamsave commit 6d5c0e0") for more info regarding the hostchange feature.
+
 ----
 
-The `quit=HH:MM:SS` option will set a one shot quit timer at script load, serving as a replacement for `autoend` when using `hostchange`; once the specified time has elapsed the player will exit.
+The `quit=HH:MM:SS` setting will set a one shot quit timer at script load, serving as a replacement for `autoend` when using `hostchange`; once the specified time has elapsed the player will exit.
 
 Running `script-message streamsave-quit HH:MM:SS` at runtime will reset the timer to the specified duration and restart it from the point of input; it can also be disabled entirely by passing `no`.
 

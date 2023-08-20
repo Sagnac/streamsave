@@ -1,4 +1,4 @@
---[[ 
+--[[
 
 streamsave.lua
 Version 0.23.2
@@ -28,7 +28,7 @@ If you want to use with local files set cache=yes in mpv.conf
 
 Options are specified in ~~/script-opts/streamsave.conf
 
-Runtime changes to all user options are supported via the `script-opts` property by using mpv's `set` or
+Runtime updates to all user options are also supported via the `script-opts` property by using mpv's `set` or
 `change-list` input commands and the `streamsave-` prefix.
 
 General Options:
@@ -64,7 +64,7 @@ The default uses iterated step increments for every file output; i.e. file-1.mkv
 
 There are 4 other choices:
 
-output_label=timestamp will append Unix timestamps to the file name.
+output_label=timestamp will use a Unix timestamp for the file name.
 
 output_label=range will tag the file with the A-B loop range instead using the format HH.MM.SS
 e.g. file-[00.15.00 - 00.20.00].mkv
@@ -76,6 +76,12 @@ output_label=chapter uses the chapter title for the file name if using one of th
 The force_extension option allows you to force a preferred format and sidestep the automatic detection.
 If using this option it is recommended that a highly flexible container is used (e.g. Matroska).
 The format is specified as the extension including the dot (e.g. force_extension=.mkv).
+
+This option can be set at runtime with script-message by passing force as an argument; e.g.:
+script-message streamsave-extension .mkv force
+This changes the format for the current stream and all subsequently loaded streams
+(without `force` the setting is a one-shot setting for the present stream).
+
 If this option is set, `script-message streamsave-extension revert` will run the automatic determination at runtime;
 running this command again will reset the extension to what's specified in force_extension.
 
@@ -84,6 +90,7 @@ This is specified without double quote marks in streamsave.conf, e.g. force_titl
 The output_label is still used here and file overwrites are prevented if desired.
 Changing the filename title to the media-title is still possible at runtime by using the revert argument,
 as in the force_extension example.
+The secondary `force` argument is supported as well when passing an extension and not using `revert`.
 
 The range_marks option allows the script to set temporary chapters at A-B loop points.
 If chapters already exist they are stored and cleared whenever any A-B points are set.
@@ -114,20 +121,23 @@ Set piecewise=yes if you want to save a stream in parts automatically, useful fo
 e.g. saving long streams on slow systems. Set autoend to the duration preferred for each output file.
 This feature requires autostart=yes.
 
-mpv's script-message command can be used at runtime to set the dump mode, override the output title
-or file extension, change the save directory, or switch the output label.
+mpv's script-message command can be used to change the user options at runtime and
+temporarily override the output title or file extension.
+Boolean style options (yes/no) can be cycled by omitting the third argument.
 If you override the title, the file extension, or the directory, the revert argument can be used
 to set it back to the default value.
 
 Examples:
+script-message streamsave-marks
 script-message streamsave-mode continuous
+script-message streamsave-title "Global Title" force
 script-message streamsave-title "Example Title"
 script-message streamsave-extension .mkv
 script-message streamsave-extension revert
 script-message streamsave-path ~/streams
 script-message streamsave-label range
 
- ]]
+]]
 
 local options = require 'mp.options'
 local utils = require 'mp.utils'
