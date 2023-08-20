@@ -138,19 +138,19 @@ local unpack = unpack or table.unpack
 -- default user options
 -- change these in streamsave.conf
 local opts = {
-    save_directory = [[.]],         -- output file directory
-    dump_mode = "ab",               -- <ab|current|continuous|chapter|segments>
-    output_label = "increment",     -- <increment|range|timestamp|overwrite|chapter>
-    force_extension = "no",         -- <no|.ext> extension will be .ext if set
-    force_title = "no",             -- <no|title> custom title used for the filename
-    range_marks = false,            -- <yes|no> set chapters at A-B loop points?
-    track_packets = false,          -- <yes|no> track HLS packet drops
-    autostart = false,              -- <yes|no> automatically dump cache at start?
-    autoend = "no",                 -- <no|HH:MM:SS> cache time to stop at
-    hostchange = false,             -- <yes|no> use if the host changes mid stream
-    on_demand = false,              -- <yes|no> hostchange suboption, instant reloads
-    quit = "no",                    -- <no|HH:MM:SS> quits player at specified time
-    piecewise = false,              -- <yes|no> writes stream in parts with autoend
+    save_directory  = [[.]],       -- output file directory
+    dump_mode       = "ab",        -- <ab|current|continuous|chapter|segments>
+    output_label    = "increment", -- <increment|range|timestamp|overwrite|chapter>
+    force_extension = "no",        -- <no|.ext> extension will be .ext if set
+    force_title     = "no",        -- <no|title> custom title used for the filename
+    range_marks     = false,       -- <yes|no> set chapters at A-B loop points?
+    track_packets   = false,       -- <yes|no> track HLS packet drops
+    autostart       = false,       -- <yes|no> automatically dump cache at start?
+    autoend         = "no",        -- <no|HH:MM:SS> cache time to stop at
+    hostchange      = false,       -- <yes|no> use if the host changes mid stream
+    on_demand       = false,       -- <yes|no> hostchange suboption, instant reloads
+    quit            = "no",        -- <no|HH:MM:SS> quits player at specified time
+    piecewise       = false,       -- <yes|no> writes stream in parts with autoend
 }
 
 local modes = {
