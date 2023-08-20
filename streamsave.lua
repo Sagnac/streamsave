@@ -776,7 +776,7 @@ local function write_chapter(chapter)
         print("Writing chapter " .. chapter .. " ....")
         return cache_check(1)
     else
-        msg.error("Chapter not found.")
+        msg.error("Chapter " .. chapter .. " not found.")
     end
 end
 
