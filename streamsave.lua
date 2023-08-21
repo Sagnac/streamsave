@@ -2,7 +2,7 @@
 
 streamsave.lua
 Version 0.24.0-lite
-2023-7-14
+2023-8-21
 https://github.com/Sagnac/streamsave/tree/lite
 
 ]]
