@@ -70,11 +70,11 @@ Runtime updates to all user options are also supported via the `script-opts` pro
 
 ----
 
-`save_directory` sets the output file directory. Don't use quote marks or a trailing slash when specifying paths here.
+`save_directory` sets the output file directory. Paths with or without a trailing slash are accepted. Don't use quote marks when specifying paths here.
 
 Example: `save_directory=C:\User Directory`
 
-mpv double tilde paths `~~/` and home path shortcuts `~/` are also accepted. By default files are dumped in the current directory.
+mpv double tilde paths `~~/` and home path shortcuts `~/` are also accepted. By default files are dumped in the current / present working directory.
 
 ----
 
