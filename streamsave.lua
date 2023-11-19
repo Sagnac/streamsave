@@ -255,6 +255,7 @@ local mp4 = {
 
 local title_change
 local container
+local cache_write
 local get_chapters
 local chapter_points
 local reset
@@ -852,7 +853,7 @@ local function write_set(mode, file_name, file_pos, quiet)
     return command
 end
 
-local function on_write_finish(cache_write, mode, file_name)
+local function on_write_finish(mode, file_name)
     return function(success, _, command_error)
         command_error = command_error and msg.error(command_error)
         -- check if file is written
@@ -882,7 +883,7 @@ local function on_write_finish(cache_write, mode, file_name)
     end
 end
 
-local function cache_write(mode, quiet, chapter)
+function cache_write(mode, quiet, chapter)
     if not (file.title and file.ext) then
         return end
     if file.pending == 2
@@ -947,7 +948,7 @@ local function cache_write(mode, quiet, chapter)
         print("Dumping cache continuously to: " .. file.name)
     end
     local commands = write_set(mode, file.name, file_pos, quiet)
-    local callback = on_write_finish(cache_write, mode, file.name)
+    local callback = on_write_finish(mode, file.name)
     file.writing = mp.command_native_async(commands, callback)
     return true
 end
