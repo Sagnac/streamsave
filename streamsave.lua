@@ -853,7 +853,7 @@ local function write_set(mode, file_name, file_pos, quiet)
     return command
 end
 
-local function on_write_finish(mode, file_name)
+local function on_write_finish(mode, file_name, sid)
     return function(success, _, command_error)
         command_error = command_error and msg.error(command_error)
         -- check if file is written
@@ -879,6 +879,10 @@ local function on_write_finish(mode, file_name)
         if file.queue and next(file.queue) and not segments[1] then
             cache_write(unpack(file.queue[1]))
             table.remove(file.queue, 1)
+        end
+        -- re-enable subtitles if they were disabled
+        if sid and file.pending == 0 then
+            mp.set_property_number("sid", sid)
         end
     end
 end
@@ -947,8 +951,25 @@ function cache_write(mode, quiet, chapter)
     elseif loop.continuous and file.pending == 1 then
         print("Dumping cache continuously to: " .. file.name)
     end
+    -- work around an incompatibility error if muxed subs are selected and the output
+    -- format is mp4 or webm by toggling the subtitles
+    local subs = mp.get_property_native("current-tracks/sub", {})
+    local sid = subs["id"]
+    if sid and not subs["external"] then
+        if file.ext == ".mp4"
+        or file.ext == ".webm" and subs["codec"] ~= "webvtt" then
+            msg.warn(
+                file.ext .. " output format is incompatible with internal subtitles",
+                "being selected.\nSubs will be disabled while writing",
+                "and enabled again when finished."
+            )
+            mp.set_property("sid", "no")
+        else
+            sid = nil
+        end
+    end
     local commands = write_set(mode, file.name, file_pos, quiet)
-    local callback = on_write_finish(mode, file.name)
+    local callback = on_write_finish(mode, file.name, sid)
     file.writing = mp.command_native_async(commands, callback)
     return true
 end
