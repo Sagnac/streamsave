@@ -956,12 +956,11 @@ function cache_write(mode, quiet, chapter)
     local subs = mp.get_property_native("current-tracks/sub", {})
     local sid = subs["id"]
     if sid and not subs["external"] then
-        if file.ext == ".mp4"
+        if file.ext == ".mp4" or subs["codec"] == "webvtt-webm"
         or file.ext == ".webm" and subs["codec"] ~= "webvtt" then
             msg.warn(
-                file.ext .. " output format is incompatible with internal subtitles",
-                "being selected.\nSubs will be disabled while writing",
-                "and enabled again when finished."
+                "Output format incompatible with internal subtitle codec.\nSubs",
+                "will be disabled while writing and enabled again when finished."
             )
             mp.set_property("sid", "no")
         else
