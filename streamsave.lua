@@ -191,6 +191,7 @@ local file = {
     pending,         -- number of files pending write completion (max 2)
     queue,           -- cache_write queue in case of multiple write requests
     writing,         -- file writing object returned by the write command
+    subs_off,        -- whether subs were disabled on write due to incompatibility
     quitsec,         -- user specified quit time in seconds
     quit_timer,      -- player quit timer set according to quitsec
     oldtitle,        -- initialized if title is overridden, allows revert
@@ -853,7 +854,7 @@ local function write_set(mode, file_name, file_pos, quiet)
     return command
 end
 
-local function on_write_finish(mode, file_name, sid)
+local function on_write_finish(mode, file_name)
     return function(success, _, command_error)
         command_error = command_error and msg.error(command_error)
         -- check if file is written
@@ -881,8 +882,9 @@ local function on_write_finish(mode, file_name, sid)
             table.remove(file.queue, 1)
         end
         -- re-enable subtitles if they were disabled
-        if sid and file.pending == 0 then
-            mp.set_property_number("sid", sid)
+        if file.subs_off and file.pending == 0 then
+            mp.set_property_number("sid", track.sid)
+            file.subs_off = false
         end
     end
 end
@@ -963,12 +965,12 @@ function cache_write(mode, quiet, chapter)
                 "will be disabled while writing and enabled again when finished."
             )
             mp.set_property("sid", "no")
-        else
-            sid = nil
+            file.subs_off = true
+            track.sid = sid
         end
     end
     local commands = write_set(mode, file.name, file_pos, quiet)
-    local callback = on_write_finish(mode, file.name, sid)
+    local callback = on_write_finish(mode, file.name)
     file.writing = mp.command_native_async(commands, callback)
     return true
 end
