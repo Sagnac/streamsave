@@ -955,8 +955,8 @@ function cache_write(mode, quiet, chapter)
     elseif loop.continuous and file.pending == 1 then
         print("Dumping cache continuously to: " .. file.name)
     end
-    -- work around an incompatibility error if muxed subs are selected and the output
-    -- format is mp4 or webm by toggling the subtitles
+    -- work around an incompatibility error for certain formats if muxed subs
+    -- are selected by toggling the subtitles
     local subs = mp.get_property_native("current-tracks/sub", {})
     local sid = subs["id"]
     if sid and not subs["external"] then
