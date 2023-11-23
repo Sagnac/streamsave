@@ -883,7 +883,9 @@ local function on_write_finish(mode, file_name)
         end
         -- re-enable subtitles if they were disabled
         if file.subs_off and file.pending == 0 then
-            mp.set_property_number("sid", track.sid)
+            if not mp.get_property_number("current-tracks/sub/id") then
+                mp.set_property_number("sid", track.sid)
+            end
             file.subs_off = false
         end
     end
@@ -964,8 +966,7 @@ function cache_write(mode, quiet, chapter)
                 "Output format incompatible with internal subtitle codec.\nSubs",
                 "will be disabled while writing and enabled again when finished."
             )
-            mp.set_property("sid", "no")
-            file.subs_off = true
+            file.subs_off = mp.set_property("sid", "no")
             track.sid = sid
         end
     end
