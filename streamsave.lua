@@ -484,7 +484,7 @@ end
 local function format_override(ext, force)
     ext = ext or file.ext
     file.oldext = file.oldext or file.ext
-    if force == "force" then
+    if force == "force" and ext ~= "revert" then
         opts.force_extension = ext
         file.ext = opts.force_extension
         print("file extension globally forced to " .. file.ext)
@@ -507,7 +507,7 @@ end
 local function title_override(title, force)
     title = title or file.title
     file.oldtitle = file.oldtitle or file.title
-    if force == "force" then
+    if force == "force" and title ~= "revert" then
         opts.force_title = title
         file.title = opts.force_title
         opts.output_label = "increment"
