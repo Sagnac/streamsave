@@ -693,6 +693,13 @@ local function loop_range()
     return loop.range
 end
 
+-- property expansion of user-set titles
+local function expand(title)
+    if file.oldtitle and title ~= file.oldtitle or opts.force_title ~= "no" then
+        file.title = sanitize(mp.command_native{"expand-text", title})
+    end
+end
+
 local function set_name(label, title)
     title = title or file.title
     return file.path .. title .. label .. file.ext
@@ -929,6 +936,7 @@ function cache_write(mode, quiet, chapter)
         end
     end
     -- evaluate tagging conditions and set file name
+    expand(file.title)
     if opts.output_label == "increment" then
         increment_filename()
     elseif opts.output_label == "range" then
