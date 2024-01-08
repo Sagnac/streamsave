@@ -431,8 +431,15 @@ local function mode_switch(value)
 end
 
 local function sanitize(title)
-    -- Replacement of reserved file name characters on Windows
-    return title:gsub("[\\/:*?\"<>|]", ".")
+    -- guard in case of an empty string
+    if #title == 0 then
+        return "streamsave"
+    end
+    -- replacement of reserved characters
+    title = title:gsub("[\\/:*?\"<>|]", ".")
+    -- avoid outputting dotfiles
+    title = title:gsub("^%.", ",")
+    return title
 end
 
 -- Set the principal part of the file name using the media title
