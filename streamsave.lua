@@ -348,7 +348,7 @@ function update.force_title()
     if enabled(opts.force_title) then
         file.title = opts.force_title
     elseif file.title then
-        title_change(_, mp.get_property("media-title"), true)
+        title_change(_, mp.get_property("media-title"))
     end
 end
 
@@ -356,7 +356,7 @@ function update.force_extension()
     if enabled(opts.force_extension) then
         file.ext = opts.force_extension
     else
-        container(_, _, true)
+        container()
     end
 end
 
