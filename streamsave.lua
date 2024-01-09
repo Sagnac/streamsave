@@ -152,8 +152,8 @@ local opts = {
     save_directory  = [[]],        -- output file directory
     dump_mode       = "ab",        -- <ab|current|continuous|chapter|segments>
     output_label    = "increment", -- <increment|range|timestamp|overwrite|chapter>
-    force_extension = "no",        -- <no|.ext> extension will be .ext if set
-    force_title     = "no",        -- <no|title> custom title used for the filename
+    force_extension = "",          -- <.ext> extension will be .ext if set
+    force_title     = "",          -- <title> custom title used for the filename
     range_marks     = false,       -- <yes|no> set chapters at A-B loop points?
     track_packets   = false,       -- <yes|no> track HLS packet drops
     autostart       = false,       -- <yes|no> automatically dump cache at start?
@@ -274,6 +274,28 @@ local function convert_time(value)
     end
 end
 
+local function enabled(option)
+    return string.len(option) > 0
+end
+
+local function deprecate()
+    local warn = false
+    local options = {"force_extension", "force_title"}
+    for _, option in next, options do
+        if opts[option] == "no" then
+            opts[option] = ""
+            warn = true
+        end
+    end
+    if warn then
+        msg.warn('Deprecation warning: the default setting of "no" has been changed')
+        msg.warn('in favour of an empty string for the following options:')
+        msg.warn(table.concat(options, ", "))
+        msg.warn('Either delete these lines from your streamsave.conf')
+        msg.warn('or assign nothing / leave the value blank.')
+    end
+end
+
 local function validate_opts()
     if not modes[opts.dump_mode] then
         msg.error("Invalid dump_mode '" .. opts.dump_mode .. "'")
@@ -301,6 +323,7 @@ local function validate_opts()
             opts.quit = "no"
         end
     end
+    deprecate()
 end
 
 local function append_slash(path)
@@ -322,7 +345,7 @@ function update.save_directory()
 end
 
 function update.force_title()
-    if opts.force_title ~= "no" then
+    if enabled(opts.force_title) then
         file.title = opts.force_title
     elseif file.title then
         title_change(_, mp.get_property("media-title"), true)
@@ -330,7 +353,7 @@ function update.force_title()
 end
 
 function update.force_extension()
-    if opts.force_extension ~= "no" then
+    if enabled(opts.force_extension) then
         file.ext = opts.force_extension
     else
         container(_, _, true)
@@ -444,7 +467,7 @@ end
 
 -- Set the principal part of the file name using the media title
 function title_change(_, media_title, req)
-    if opts.force_title ~= "no" and not req or not media_title then
+    if enabled(opts.force_title) and not req or not media_title then
         return end
     file.title = sanitize(media_title)
     file.oldtitle = nil
@@ -460,7 +483,7 @@ function container(_, _, req)
         observe_tracks()
         file.ext = nil
         return end
-    if opts.force_extension ~= "no" and not req then
+    if enabled(opts.force_extension) and not req then
         file.ext = opts.force_extension
         observe_cache()
         observe_tracks()
@@ -493,7 +516,7 @@ local function format_override(ext, force)
     end
     if ext == "revert" and file.ext == opts.force_extension then
         container(_, _, true)
-    elseif ext == "revert" and opts.force_extension ~= "no" then
+    elseif ext == "revert" and enabled(opts.force_extension) then
         file.ext = opts.force_extension
     elseif ext == "revert" then
         file.ext = file.oldext
@@ -517,7 +540,7 @@ local function title_override(title, force)
     end
     if title == "revert" and file.title == opts.force_title then
         title_change(_, mp.get_property("media-title"), true)
-    elseif title == "revert" and opts.force_title ~= "no" then
+    elseif title == "revert" and enabled(opts.force_title) then
         file.title = opts.force_title
     elseif title == "revert" then
         file.title = file.oldtitle
@@ -702,7 +725,7 @@ end
 
 -- property expansion of user-set titles
 local function expand(title)
-    if file.oldtitle and title ~= file.oldtitle or opts.force_title ~= "no" then
+    if file.oldtitle and title ~= file.oldtitle or enabled(opts.force_title) then
         file.title = sanitize(mp.command_native{"expand-text", title})
     end
 end
