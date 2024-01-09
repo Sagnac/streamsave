@@ -515,6 +515,10 @@ local function format_override(ext, force)
         return
     end
     if ext == "revert" and file.ext == opts.force_extension then
+        if force == "force" then
+            print("force_extension option reset to default.")
+            opts.force_extension = ""
+        end
         container(_, _, true)
     elseif ext == "revert" and enabled(opts.force_extension) then
         file.ext = opts.force_extension
@@ -539,6 +543,10 @@ local function title_override(title, force)
         return
     end
     if title == "revert" and file.title == opts.force_title then
+        if force == "force" then
+            print("force_title option reset to default.")
+            opts.force_title = ""
+        end
         title_change(_, mp.get_property("media-title"), true)
     elseif title == "revert" and enabled(opts.force_title) then
         file.title = opts.force_title
