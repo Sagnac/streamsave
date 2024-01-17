@@ -91,7 +91,10 @@ This is specified without double quote marks in streamsave.conf, e.g. force_titl
 The output_label is still used here and file overwrites are prevented if desired.
 Changing the filename title to the media-title is still possible at runtime by using the revert argument,
 as in the force_extension example.
-The secondary `force` argument is supported as well when passing an extension and not using `revert`.
+The secondary `force` argument is supported as well when not using `revert`.
+Property expansion is supported for all user-set titles. For example:
+`force_title=streamsave_${media-title}` in streamsave.conf, or
+`script-message streamsave-title ${duration}` at runtime.
 
 The range_marks option allows the script to set temporary chapters at A-B loop points.
 If chapters already exist they are stored and cleared whenever any A-B points are set.
@@ -122,9 +125,9 @@ Set piecewise=yes if you want to save a stream in parts automatically, useful fo
 e.g. saving long streams on slow systems. Set autoend to the duration preferred for each output file.
 This feature requires autostart=yes.
 
-mpv's script-message command can be used to change the user options at runtime and
+mpv's script-message command can be used to change settings at runtime and
 temporarily override the output title or file extension.
-Boolean style options (yes/no) can be cycled by omitting the third argument.
+Boolean-style options (yes/no) can be cycled by omitting the third argument.
 If you override the title, the file extension, or the directory, the revert argument can be used
 to set it back to the default value.
 
@@ -146,7 +149,7 @@ local msg = require 'mp.msg'
 
 local unpack = unpack or table.unpack
 
--- default user options
+-- default user settings
 -- change these in streamsave.conf
 local opts = {
     save_directory  = [[]],        -- output file directory

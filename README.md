@@ -1,6 +1,6 @@
 # [streamsave.lua](https://raw.githubusercontent.com/Sagnac/streamsave/master/streamsave.lua "streamsave.lua")
 
-[mpv](https://github.com/mpv-player/mpv "mpv") script aimed at saving live streams and clipping online videos without encoding.
+[mpv](https://github.com/mpv-player/mpv) script aimed at saving live streams and clipping online videos without encoding.
 
 Essentially a wrapper around mpv's cache dumping commands, the script adds the following functionality:
 
@@ -41,11 +41,11 @@ If you want to use with local files set `cache=yes` in mpv.conf
 
 ----
 
-There's a lighter base version of the script with the automation, packet tracking, chapter modes, and extra script-message features stripped at the [`lite`](../../tree/lite) branch.
+There's a lighter base version of the script with the automation, packet tracking, chapter modes, and extra script-message features stripped at the [`lite`](../../tree/lite "lite branch") branch.
 
 ----
 
-mpv's `script-message` command can be used to change the user options at runtime and temporarily override the output title or file extension. Boolean style options (`yes`/`no`) can be cycled by omitting the third argument.
+mpv's `script-message` command can be used to change settings at runtime and temporarily override the output title or file extension. Boolean-style options (`yes`/`no`) can be cycled by omitting the third argument.
 If you override the title, the file extension, or the directory, the `revert` argument can be used to set it back to the default value.
 
 Examples:
@@ -137,9 +137,11 @@ This option is disabled by default allowing the script to choose between MP4, We
 
 The `force_title` option will set the title used for the filename. By default the script uses the `media-title`.
 
-This is specified without double quote marks in streamsave.conf, e.g. `force_title=Example Title`.
+This is specified without double quote marks in `streamsave.conf`, e.g. `force_title=Example Title`.
 
-The `output_label` is still used here and file overwrites are prevented if desired. Changing the filename title to the `media-title` is still possible at runtime by using the `revert` argument, as in the `force_extension` example. The secondary `force` argument is supported as well when passing an extension and not using `revert`.
+The `output_label` is still used here and file overwrites are prevented if desired. Changing the filename title to the `media-title` is still possible at runtime by using the `revert` argument, as in the `force_extension` example; the secondary `force` argument is supported as well.
+
+[Property expansion](https://mpv.io/manual/master/#property-expansion) is supported for all user-set titles. For example: `force_title=streamsave_${media-title}` in `streamsave.conf`, or `script-message streamsave-title ${duration}` at runtime.
 
 ----
 
@@ -149,7 +151,7 @@ If chapters already exist they are stored and cleared whenever any A-B points ar
 
 Make sure your build of mpv is up to date or at least includes commit [mpv-player/mpv@`96b246d`](https://github.com/mpv-player/mpv/commit/96b246d9283da99b82800bbd576037d115e3c6e9 "mpv commit 96b246d") so that the seekbar chapter indicators/markers update properly on the OSC.
 
-This option is disabled by default; set `range_marks=yes` in streamsave.conf in order to enable it.
+This option is disabled by default; set `range_marks=yes` in `streamsave.conf` in order to enable it.
 
 You can also enable this feature at runtime using `script-message streamsave-marks yes`.
 
@@ -183,14 +185,14 @@ The `autostart` option must also be enabled in order to autosave these types of 
 
 This feature accepts associated `script-message` arguments of `yes`, `no`, and `on_demand`.
 
-The `on_demand` option is a suboption of the hostchange option which, if enabled, triggers reloads immediately across segment switches without waiting until playback has reached the end of the last segment.
+The `on_demand` option is a suboption of the `hostchange` option which, if enabled, triggers reloads immediately across segment switches without waiting until playback has reached the end of the last segment.
 
 This suboption can be toggled at runtime with:
 ```
 script-message streamsave-hostchange on_demand
 ```
 
-See [`6d5c0e0`](https://github.com/Sagnac/streamsave/commit/6d5c0e04472bd04ad91b5148fb0d9ad5bd9bbb72 "streamsave commit 6d5c0e0") for more info regarding the hostchange feature.
+See [`6d5c0e0`](https://github.com/Sagnac/streamsave/commit/6d5c0e04472bd04ad91b5148fb0d9ad5bd9bbb72 "streamsave commit 6d5c0e0") for more info regarding the `hostchange` feature.
 
 ----
 
