@@ -197,6 +197,7 @@ local file = {
     subs_off,        -- whether subs were disabled on write due to incompatibility
     quitsec,         -- user specified quit time in seconds
     quit_timer,      -- player quit timer set according to quitsec
+    forced_title,    -- unexpanded user set title
     oldtitle,        -- initialized if title is overridden, allows revert
     oldext,          -- initialized if format is overridden, allows revert
     oldpath,         -- initialized if directory is overriden, allows revert
@@ -349,9 +350,11 @@ end
 
 function update.force_title()
     if enabled(opts.force_title) then
-        file.title = opts.force_title
-    elseif file.title then
+        file.forced_title = opts.force_title
+    elseif file.forced_title then
         title_change(_, mp.get_property("media-title"))
+    else
+        file.forced_title = ""
     end
 end
 
@@ -470,9 +473,15 @@ end
 
 -- Set the principal part of the file name using the media title
 function title_change(_, media_title, req)
-    if enabled(opts.force_title) and not req or not media_title then
-        return end
+    if not media_title then
+        return
+    end
+    if enabled(opts.force_title) and not req then
+        file.forced_title = opts.force_title
+        return
+    end
     file.title = sanitize(media_title)
+    file.forced_title = ""
     file.oldtitle = nil
 end
 
@@ -539,24 +548,25 @@ local function title_override(title, force)
     file.oldtitle = file.oldtitle or file.title
     if force == "force" and title ~= "revert" then
         opts.force_title = title
-        file.title = opts.force_title
+        file.forced_title = opts.force_title
         opts.output_label = "increment"
         print("title globally forced to " .. file.title)
         mp.osd_message("streamsave: title globally forced to " .. file.title)
         return
     end
-    if title == "revert" and file.title == opts.force_title then
+    if title == "revert" and enabled(file.forced_title) then
         if force == "force" then
             print("force_title option reset to default.")
             opts.force_title = ""
         end
         title_change(_, mp.get_property("media-title"), true)
     elseif title == "revert" and enabled(opts.force_title) then
-        file.title = opts.force_title
+        file.forced_title = opts.force_title
     elseif title == "revert" then
         file.title = file.oldtitle
+        file.forced_title = ""
     else
-        file.title = title
+        file.forced_title = title
     end
     print("title changed to " .. file.title)
     mp.osd_message("streamsave: title changed to " .. file.title)
@@ -736,7 +746,7 @@ end
 
 -- property expansion of user-set titles
 local function expand(title)
-    if file.oldtitle and title ~= file.oldtitle or enabled(opts.force_title) then
+    if enabled(title) then
         file.title = sanitize(mp.command_native{"expand-text", title})
     end
 end
@@ -940,7 +950,7 @@ local function on_write_finish(mode, file_name)
 end
 
 function cache_write(mode, quiet, chapter)
-    if not (file.title and file.ext) then
+    if not ((file.title or enabled(file.forced_title)) and file.ext) then
         return end
     if file.pending == 2
        or segments[1] and file.pending > 0 and not loop.continuous
@@ -977,7 +987,7 @@ function cache_write(mode, quiet, chapter)
         end
     end
     -- evaluate tagging conditions and set file name
-    expand(file.title)
+    expand(file.forced_title)
     if opts.output_label == "increment" then
         increment_filename()
     elseif opts.output_label == "range" then
