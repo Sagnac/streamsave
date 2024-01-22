@@ -180,8 +180,6 @@ for i, v in ipairs(cycle_modes) do
     modes[v] = i
 end
 
-local n_modes = #cycle_modes
-
 local mode_info = {
     continuous = "Continuous",
     ab = "A-B loop",
@@ -207,7 +205,9 @@ for i, v in ipairs(cycle_labels) do
     labels[v] = i
 end
 
-local n_labels = #cycle_labels
+local cycle_mt = {__index = function(t) return t[1] end}
+setmetatable(cycle_modes, cycle_mt)
+setmetatable(cycle_labels, cycle_mt)
 
 -- for internal use
 local file = {
@@ -448,7 +448,7 @@ update_opts{force_title = true, save_directory = true}
 local function mode_switch(value)
     value = value or opts.dump_mode
     if value == "cycle" then
-        value = cycle_modes[modes[opts.dump_mode] % n_modes + 1]
+        value = cycle_modes[modes[opts.dump_mode] + 1]
     end
     if not modes[value] then
         msg.error("Invalid dump mode '" .. value .. "'")
@@ -590,7 +590,7 @@ end
 
 local function label_override(value)
     if value == "cycle" then
-        value = cycle_labels[labels[opts.output_label] % n_labels + 1]
+        value = cycle_labels[labels[opts.output_label] + 1]
     end
     opts.output_label = value or opts.output_label
     validate_opts()
