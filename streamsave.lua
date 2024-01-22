@@ -167,21 +167,47 @@ local opts = {
     piecewise       = false,       -- <yes|no> writes stream in parts with autoend
 }
 
-local modes = {
-    ab = true,
-    current = true,
-    continuous = true,
-    chapter = true,
-    segments = true,
+local cycle_modes = {
+    "ab",
+    "current",
+    "continuous",
+    "chapter",
+    "segments"
 }
 
-local labels = {
-    increment = true,
-    range = true,
-    timestamp = true,
-    overwrite = true,
-    chapter = true,
+local modes = {}
+for i, v in ipairs(cycle_modes) do
+    modes[v] = i
+end
+
+local n_modes = #cycle_modes
+
+local mode_info = {
+    continuous = "Continuous",
+    ab = "A-B loop",
+    current = "Current position",
+    chapter = "Chapter",
+    segments = "Segments",
+    append = {
+        chapter = " (single chapter)",
+        segments = " (all chapters)"
+    }
 }
+
+local cycle_labels = {
+    "increment",
+    "range",
+    "timestamp",
+    "overwrite",
+    "chapter"
+}
+
+local labels = {}
+for i, v in ipairs(cycle_labels) do
+    labels[v] = i
+end
+
+local n_labels = #cycle_labels
 
 -- for internal use
 local file = {
@@ -422,41 +448,17 @@ update_opts{force_title = true, save_directory = true}
 local function mode_switch(value)
     value = value or opts.dump_mode
     if value == "cycle" then
-        if opts.dump_mode == "ab" then
-            value = "current"
-        elseif opts.dump_mode == "current" then
-            value = "continuous"
-        elseif opts.dump_mode == "continuous" then
-            value = "chapter"
-        elseif opts.dump_mode == "chapter" then
-            value = "segments"
-        else
-            value = "ab"
-        end
+        value = cycle_modes[modes[opts.dump_mode] % n_modes + 1]
     end
-    if value == "continuous" then
-        opts.dump_mode = "continuous"
-        print("Continuous mode")
-        mp.osd_message("Cache write mode: Continuous")
-    elseif value == "ab" then
-        opts.dump_mode = "ab"
-        print("A-B loop mode")
-        mp.osd_message("Cache write mode: A-B loop")
-    elseif value == "current" then
-        opts.dump_mode = "current"
-        print("Current position mode")
-        mp.osd_message("Cache write mode: Current position")
-    elseif value == "chapter" then
-        opts.dump_mode = "chapter"
-        print("Chapter mode (single chapter)")
-        mp.osd_message("Cache write mode: Chapter")
-    elseif value == "segments" then
-        opts.dump_mode = "segments"
-        print("Segments mode (all chapters)")
-        mp.osd_message("Cache write mode: Segments")
-    else
+    if not modes[value] then
         msg.error("Invalid dump mode '" .. value .. "'")
+        return
     end
+    opts.dump_mode = value
+    local mode = mode_info[value]
+    local append = mode_info.append[value] or ""
+    print(mode, "mode" .. append .. ".")
+    mp.osd_message("Cache write mode: " .. mode .. append)
 end
 
 local function sanitize(title)
@@ -587,17 +589,7 @@ end
 
 local function label_override(value)
     if value == "cycle" then
-        if opts.output_label == "increment" then
-            value = "range"
-        elseif opts.output_label == "range" then
-            value = "timestamp"
-        elseif opts.output_label == "timestamp" then
-            value = "overwrite"
-        elseif opts.output_label == "overwrite" then
-            value = "chapter"
-        else
-            value = "increment"
-        end
+        value = cycle_labels[labels[opts.output_label] % n_labels + 1]
     end
     opts.output_label = value or opts.output_label
     validate_opts()
