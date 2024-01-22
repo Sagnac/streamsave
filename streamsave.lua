@@ -457,7 +457,7 @@ local function mode_switch(value)
     opts.dump_mode = value
     local mode = mode_info[value]
     local append = mode_info.append[value] or ""
-    print(mode, "mode" .. append .. ".")
+    msg.info(mode, "mode" .. append .. ".")
     mp.osd_message("Cache write mode: " .. mode .. append)
 end
 
@@ -524,13 +524,13 @@ local function format_override(ext, force)
     if force == "force" and ext ~= "revert" then
         opts.force_extension = ext
         file.ext = opts.force_extension
-        print("file extension globally forced to " .. file.ext)
+        msg.info("file extension globally forced to", file.ext)
         mp.osd_message("streamsave: file extension globally forced to " .. file.ext)
         return
     end
     if ext == "revert" and file.ext == opts.force_extension then
         if force == "force" then
-            print("force_extension option reset to default.")
+            msg.info("force_extension option reset to default.")
             opts.force_extension = ""
         end
         container(_, _, true)
@@ -541,7 +541,7 @@ local function format_override(ext, force)
     else
         file.ext = ext
     end
-    print("file extension changed to " .. file.ext)
+    msg.info("file extension changed to", file.ext)
     mp.osd_message("streamsave: file extension changed to " .. file.ext)
 end
 
@@ -552,13 +552,13 @@ local function title_override(title, force)
         opts.force_title = title
         file.forced_title = opts.force_title
         opts.output_label = "increment"
-        print("title globally forced to " .. file.title)
+        msg.info("title globally forced to", file.title)
         mp.osd_message("streamsave: title globally forced to " .. file.title)
         return
     end
     if title == "revert" and enabled(file.forced_title) then
         if force == "force" then
-            print("force_title option reset to default.")
+            msg.info("force_title option reset to default.")
             opts.force_title = ""
         end
         title_change(_, mp.get_property("media-title"), true)
@@ -570,7 +570,7 @@ local function title_override(title, force)
     else
         file.forced_title = title
     end
-    print("title changed to " .. file.title)
+    msg.info("title changed to", file.title)
     mp.osd_message("streamsave: title changed to " .. file.title)
 end
 
@@ -583,7 +583,7 @@ local function path_override(value)
         opts.save_directory = value
     end
     update.save_directory()
-    print("Output directory changed to " .. file.path)
+    msg.info("Output directory changed to", file.path)
     mp.osd_message("streamsave: directory changed to " .. opts.save_directory)
 end
 
@@ -593,7 +593,7 @@ local function label_override(value)
     end
     opts.output_label = value or opts.output_label
     validate_opts()
-    print("File label changed to " .. opts.output_label)
+    msg.info("File label changed to", opts.output_label)
     mp.osd_message("streamsave: label changed to " .. opts.output_label)
 end
 
@@ -605,12 +605,12 @@ local function marks_override(value)
             mp.set_property_native("chapter-list", chapter_list)
         end
         ab_chapters = {}
-        print("Range marks disabled")
+        msg.info("Range marks disabled.")
         mp.osd_message("streamsave: range marks disabled")
     elseif value == "yes" then
         opts.range_marks = true
         chapter_points()
-        print("Range marks enabled")
+        msg.info("Range marks enabled.")
         mp.osd_message("streamsave: range marks enabled")
     else
         msg.error("Invalid input '" .. value .. "'. Use yes or no.")
@@ -622,11 +622,11 @@ local function autostart_override(value)
     value = cycle_bool_on_missing_arg(value, opts.autostart)
     if value == "no" then
         opts.autostart = false
-        print("Autostart disabled")
+        msg.info("Autostart disabled.")
         mp.osd_message("streamsave: autostart disabled")
     elseif value == "yes" then
         opts.autostart = true
-        print("Autostart enabled")
+        msg.info("Autostart enabled.")
         mp.osd_message("streamsave: autostart enabled")
     else
         msg.error("Invalid input '" .. value .. "'. Use yes or no.")
@@ -641,7 +641,7 @@ local function autoend_override(value)
     validate_opts()
     cache.endsec = convert_time(opts.autoend)
     observe_cache()
-    print("Autoend set to " .. opts.autoend)
+    msg.info("Autoend set to", opts.autoend)
     mp.osd_message("streamsave: autoend set to " .. opts.autoend)
 end
 
@@ -650,21 +650,21 @@ local function hostchange_override(value)
     value = cycle_bool_on_missing_arg(value, hostchange)
     if value == "no" then
         opts.hostchange = false
-        print("Hostchange disabled")
+        msg.info("Hostchange disabled.")
         mp.osd_message("streamsave: hostchange disabled")
     elseif value == "yes" then
         opts.hostchange = true
-        print("Hostchange enabled")
+        msg.info("Hostchange enabled.")
         mp.osd_message("streamsave: hostchange enabled")
     elseif value == "on_demand" then
         opts.on_demand = not opts.on_demand
         opts.hostchange = opts.on_demand or opts.hostchange
         local status = opts.on_demand and "enabled" or "disabled"
-        print("Hostchange: On Demand " .. status)
+        msg.info("Hostchange: On Demand", status .. ".")
         mp.osd_message("streamsave: hostchange on_demand " .. status)
     else
         local allowed = "yes, no, or on_demand"
-        msg.error("Invalid input '" .. value .. "'. Use " .. allowed .. ".")
+        msg.error("Invalid input '" .. value .. "'. Use", allowed .. ".")
         mp.osd_message("streamsave: invalid input; use " .. allowed)
         return
     end
@@ -677,7 +677,7 @@ local function quit_override(value)
     opts.quit = value or opts.quit
     validate_opts()
     autoquit()
-    print("Quit set to " .. opts.quit)
+    msg.info("Quit set to", opts.quit)
     mp.osd_message("streamsave: quit set to " .. opts.quit)
 end
 
@@ -686,12 +686,12 @@ local function piecewise_override(value)
     if value == "no" then
         opts.piecewise = false
         cache.part = 0
-        print("Piecewise dumping disabled")
+        msg.info("Piecewise dumping disabled.")
         mp.osd_message("streamsave: piecewise dumping disabled")
     elseif value == "yes" then
         opts.piecewise = true
         cache.endsec = convert_time(opts.autoend)
-        print("Piecewise dumping enabled")
+        msg.info("Piecewise dumping enabled.")
         mp.osd_message("streamsave: piecewise dumping enabled")
     else
         msg.error("Invalid input '" .. value .. "'. Use yes or no.")
@@ -704,11 +704,11 @@ local function packet_override(value)
     value = cycle_bool_on_missing_arg(value, track_packets)
     if value == "no" then
         opts.track_packets = false
-        print("Track packets disabled")
+        msg.info("Track packets disabled.")
         mp.osd_message("streamsave: track packets disabled")
     elseif value == "yes" then
         opts.track_packets = true
-        print("Track packets enabled")
+        msg.info("Track packets enabled.")
         mp.osd_message("streamsave: track packets enabled")
     else
         msg.error("Invalid input '" .. value .. "'. Use yes or no.")
@@ -849,10 +849,10 @@ local function write_chapter(chapter)
             ["title"] = chapter .. ". " .. (not zeroth_chapter
                         and chapter_list[chapter]["title"] or file.title)
         }
-        print("Writing chapter " .. chapter .. " ....")
+        msg.info("Writing chapter", chapter, "....")
         return cache_check(1)
     else
-        msg.error("Chapter " .. chapter .. " not found.")
+        msg.error("Chapter", chapter, "not found.")
     end
 end
 
@@ -878,7 +878,7 @@ local function extract_segments(n, chapter_list)
         ["title"] = n .. ". " .. (chapter_list[n]["title"] or file.title)
     })
     local k = #segments
-    print("Writing out all " .. k .. " chapters to separate files ....")
+    msg.info("Writing out all", k, "chapters to separate files ....")
     return k
 end
 
@@ -910,15 +910,15 @@ local function on_write_finish(mode, file_name)
         -- check if file is written
         if utils.file_info(file_name) then
             if success then
-                print("Finished writing cache to: " .. file_name)
+                msg.info("Finished writing cache to:", file_name)
             else
-                msg.warn("Possibly broken file created at: " .. file_name)
+                msg.warn("Possibly broken file created at:", file_name)
             end
         else
             msg.error("File not written.")
         end
         if loop.continuous and file.pending == 2 then
-            print("Dumping cache continuously to: " .. file.name)
+            msg.info("Dumping cache continuously to:", file.name)
         end
         file.pending = file.pending - 1
         -- fulfil any write requests now that the pending queue has been serviced
@@ -1004,7 +1004,7 @@ function cache_write(mode, quiet, chapter)
     if mode == "current" then
         file_pos = mp.get_property_number("playback-time", 0)
     elseif loop.continuous and file.pending == 1 then
-        print("Dumping cache continuously to: " .. file.name)
+        msg.info("Dumping cache continuously to:", file.name)
     end
     -- work around an incompatibility error for certain formats if muxed subs
     -- are selected by toggling the subtitles
@@ -1039,12 +1039,12 @@ local function align_cache()
         loop.b_revert = loop.b
         mp.command("ab-loop-align-cache")
         loop.aligned = true
-        print("Adjusted range: " .. loop_range())
+        msg.info("Adjusted range:", loop_range())
     else
         mp.set_property_native("ab-loop-a", loop.a_revert)
         mp.set_property_native("ab-loop-b", loop.b_revert)
         loop.aligned = false
-        print("Loop points reverted to: " .. loop_range())
+        msg.info("Loop points reverted to:", loop_range())
         mp.osd_message("A-B loop: " .. loop.range)
     end
 end
@@ -1286,7 +1286,7 @@ function autoquit()
             function()
                 stop()
                 mp.command("quit")
-                print("Quit after " .. opts.quit)
+                msg.info("Quit after", opts.quit)
             end)
     else
         file.quit_timer["timeout"] = file.quitsec
