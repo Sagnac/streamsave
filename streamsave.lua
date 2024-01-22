@@ -552,8 +552,8 @@ local function title_override(title, force)
         opts.force_title = title
         file.forced_title = opts.force_title
         opts.output_label = "increment"
-        msg.info("title globally forced to", file.title)
-        mp.osd_message("streamsave: title globally forced to " .. file.title)
+        msg.info("title globally forced to", title)
+        mp.osd_message("streamsave: title globally forced to " .. title)
         return
     end
     if title == "revert" and enabled(file.forced_title) then
@@ -570,8 +570,9 @@ local function title_override(title, force)
     else
         file.forced_title = title
     end
-    msg.info("title changed to", file.title)
-    mp.osd_message("streamsave: title changed to " .. file.title)
+    title = enabled(file.forced_title) and file.forced_title or file.title
+    msg.info("title changed to", title)
+    mp.osd_message("streamsave: title changed to " .. title)
 end
 
 local function path_override(value)
