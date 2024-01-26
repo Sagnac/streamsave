@@ -476,6 +476,7 @@ end
 -- Set the principal part of the file name using the media title
 function title_change(_, media_title, req)
     if not media_title then
+        file.title = nil
         return
     end
     if enabled(opts.force_title) and not req then
@@ -943,7 +944,8 @@ local function on_write_finish(mode, file_name)
 end
 
 function cache_write(mode, quiet, chapter)
-    if not ((file.title or enabled(file.forced_title)) and file.ext) then
+    expand(file.forced_title)
+    if not (file.title and file.ext) then
         return end
     if file.pending == 2
        or segments[1] and file.pending > 0 and not loop.continuous
@@ -980,7 +982,6 @@ function cache_write(mode, quiet, chapter)
         end
     end
     -- evaluate tagging conditions and set file name
-    expand(file.forced_title)
     if opts.output_label == "increment" then
         increment_filename()
     elseif opts.output_label == "range" then
