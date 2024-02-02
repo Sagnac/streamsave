@@ -297,6 +297,9 @@ local packet_events
 local observe_cache
 local observe_tracks
 
+local MAX_PATH_LENGTH = 259
+local UNICODE = "[%z\1-\127\194-\244][\128-\191]*"
+
 local function convert_time(value)
     local H, M, S = value:match("^(%d+):([0-5]%d):([0-5]%d)$")
     if H then
@@ -745,9 +748,38 @@ local function expand(title)
     end
 end
 
+local function get_path_length(path)
+    _, n = path:gsub(UNICODE, "")
+    return n
+end
+
+local function check_path_length()
+    if get_path_length(file.name) > MAX_PATH_LENGTH then
+        msg.warn("Path length exceeds", MAX_PATH_LENGTH, "characters")
+        msg.warn("and the title cannot be truncated further.")
+        msg.warn("The file may fail to write. Use a shorter save_directory path.")
+    end
+end
+
+local function set_path(label, title)
+    return file.path .. title .. label .. file.ext
+end
+
 local function set_name(label, title)
     title = title or file.title
-    return file.path .. title .. label .. file.ext
+    local path = set_path(label, title)
+    local path_length = get_path_length(path)
+    if #file.path == 0 or file.path == "./" then
+        local cwd_len = get_path_length(utils.getcwd() or 0)
+        path_length = path_length + cwd_len + 1
+    end
+    local diff = math.min(path_length - MAX_PATH_LENGTH, get_path_length(title) - 1)
+    if diff < 1 then
+        return path
+    else
+        title = title:gsub(UNICODE:rep(diff) .. "$", "")
+        return set_path(label, title)
+    end
 end
 
 local function increment_filename()
@@ -992,11 +1024,12 @@ function cache_write(mode, quiet, chapter)
         file.name = set_name("")
     elseif opts.output_label == "chapter" then
         if segments[1] then
-            file.name = set_name(sanitize(segments[1]["title"]), "")
+            file.name = set_name("", sanitize(segments[1]["title"]))
         else
             increment_filename()
         end
     end
+    check_path_length()
     -- dump cache according to mode
     local file_pos
     file.pending = (file.pending or 0) + 1
