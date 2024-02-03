@@ -211,11 +211,12 @@ setmetatable(cycle_labels, cycle_mt)
 
 -- for internal use
 local file = {
-    name,            -- file name (full path to file)
+    name,            -- file name (path to file)
     path,            -- directory the file is written to
     title,           -- media title
     inc,             -- filename increments
     ext,             -- file extension
+    length,          -- 3-element table: directory, filename, & full path lengths
     loaded,          -- flagged once the initial load has taken place
     pending,         -- number of files pending write completion (max 2)
     queue,           -- cache_write queue in case of multiple write requests
@@ -367,14 +368,43 @@ local function append_slash(path)
     end
 end
 
+local function normalize(path)
+    -- handle absolute paths
+    if path:match("^/") or path:match("^%a:[\\/]") or path:match("^\\\\") then
+        return path
+    elseif path:match("^\\") then
+        -- path relative to cwd root
+        -- make sure the drive letter and volume separator are counted
+        -- the actual letter doesn't matter as this is only for length measurement
+        return "C:" .. path
+    end
+    -- resolve relative paths
+    path = append_slash(utils.getcwd() or "") .. path:gsub("^%.[\\/]", "")
+    -- relative paths with ../ are resolved by collapsing
+    -- the parent directories iteratively
+    local k = 1
+    while k > 0 do
+        path, k = path:gsub("[\\/][^\\/]+[\\/]+%.%.[\\/]", "/", 1)
+    end
+    return path
+end
+
+local function get_path_length(path)
+    local _, n = path:gsub(UNICODE, "")
+    return n
+end
+
 function update.save_directory()
     if #opts.save_directory == 0 then
         file.path = opts.save_directory
-        return
+    else
+        -- expand mpv meta paths (e.g. ~~/directory)
+        opts.save_directory = append_slash(opts.save_directory)
+        file.path = append_slash(mp.command_native {
+            "expand-path", opts.save_directory
+        })
     end
-    -- expand mpv meta paths (e.g. ~~/directory)
-    opts.save_directory = append_slash(opts.save_directory)
-    file.path = append_slash(mp.command_native{"expand-path", opts.save_directory})
+    file.length = {get_path_length(normalize(file.path))}
 end
 
 function update.force_title()
@@ -748,13 +778,8 @@ local function expand(title)
     end
 end
 
-local function get_path_length(path)
-    _, n = path:gsub(UNICODE, "")
-    return n
-end
-
 local function check_path_length()
-    if get_path_length(file.name) > MAX_PATH_LENGTH then
+    if file.length[3] > MAX_PATH_LENGTH then
         msg.warn("Path length exceeds", MAX_PATH_LENGTH, "characters")
         msg.warn("and the title cannot be truncated further.")
         msg.warn("The file may fail to write. Use a shorter save_directory path.")
@@ -762,21 +787,20 @@ local function check_path_length()
 end
 
 local function set_path(label, title)
-    return file.path .. title .. label .. file.ext
+    local name = title .. label .. file.ext
+    file.length[2] = get_path_length(name)
+    file.length[3] = file.length[1] + file.length[2]
+    return file.path .. name
 end
 
 local function set_name(label, title)
     title = title or file.title
     local path = set_path(label, title)
-    local path_length = get_path_length(path)
-    if #file.path == 0 or file.path == "./" then
-        local cwd_len = get_path_length(utils.getcwd() or 0)
-        path_length = path_length + cwd_len + 1
-    end
+    local path_length = file.length[3]
     local diff = math.min(path_length - MAX_PATH_LENGTH, get_path_length(title) - 1)
     if diff < 1 then
         return path
-    else
+    else -- truncate
         title = title:gsub(UNICODE:rep(diff) .. "$", "")
         return set_path(label, title)
     end
