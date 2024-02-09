@@ -92,7 +92,7 @@ This option is disabled by default allowing the script to choose between MP4, We
 
 The `force_title` option will set the title used for the filename. By default the script uses the `media-title`.
 
-This is specified without double quote marks in streamsave.conf, e.g. `force_title=Example Title`.
+This is specified without double quote marks in `streamsave.conf`, e.g. `force_title=Example Title`.
 
 The `output_label` is still used here and file overwrites are prevented if desired.
 

@@ -11,21 +11,32 @@ local options = require 'mp.options'
 local utils = require 'mp.utils'
 local msg = require 'mp.msg'
 
--- default user options
+-- default user settings
 -- change these in streamsave.conf
 local opts = {
     save_directory  = [[]],        -- output file directory
     dump_mode       = "ab",        -- <ab|current|continuous>
     output_label    = "increment", -- <increment|range|timestamp|overwrite>
-    force_extension = "no",        -- <no|.ext> extension will be .ext if set
-    force_title     = "no",        -- <no|title> custom title used for the filename
+    force_extension = "",          -- <.ext> extension will be .ext if set
+    force_title     = "",          -- <title> custom title used for the filename
     range_marks     = true,        -- <yes|no> set chapters at A-B loop points?
 }
 
-local modes = {
-    ab = true,
-    current = true,
-    continuous = true,
+local cycle_modes = {
+    "ab",
+    "current",
+    "continuous"
+}
+
+local modes = {}
+for i, v in ipairs(cycle_modes) do
+    modes[v] = i
+end
+
+local mode_info = {
+    continuous = "Continuous",
+    ab = "A-B loop",
+    current = "Current position"
 }
 
 local labels = {
@@ -35,9 +46,11 @@ local labels = {
     overwrite = true,
 }
 
+setmetatable(cycle_modes, {__index = function(t) return t[1] end})
+
 -- for internal use
 local file = {
-    name,            -- file name (full path to file)
+    name,            -- file name (path to file)
     path,            -- directory the file is written to
     title,           -- media title
     inc,             -- filename increments
@@ -82,8 +95,13 @@ local mp4 = {
 
 local title_change
 local container
+local cache_write
 local get_chapters
 local chapter_points
+
+local function enabled(option)
+    return string.len(option) > 0
+end
 
 local function validate_opts()
     if not modes[opts.dump_mode] then
@@ -115,7 +133,7 @@ function update.save_directory()
 end
 
 function update.force_title()
-    if opts.force_title ~= "no" then
+    if enabled(opts.force_title) then
         file.title = opts.force_title
     elseif file.title then
         title_change(_, mp.get_property("media-title"))
@@ -123,7 +141,7 @@ function update.force_title()
 end
 
 function update.force_extension()
-    if opts.force_extension ~= "no" then
+    if enabled(opts.force_extension) then
         file.ext = opts.force_extension
     else
         container()
@@ -157,34 +175,21 @@ update_opts{force_title = true, save_directory = true}
 local function mode_switch(value)
     value = value or opts.dump_mode
     if value == "cycle" then
-        if opts.dump_mode == "ab" then
-            value = "current"
-        elseif opts.dump_mode == "current" then
-            value = "continuous"
-        else
-            value = "ab"
-        end
+        value = cycle_modes[modes[opts.dump_mode] + 1]
     end
-    if value == "continuous" then
-        opts.dump_mode = "continuous"
-        print("Continuous mode")
-        mp.osd_message("Cache write mode: Continuous")
-    elseif value == "ab" then
-        opts.dump_mode = "ab"
-        print("A-B loop mode")
-        mp.osd_message("Cache write mode: A-B loop")
-    elseif value == "current" then
-        opts.dump_mode = "current"
-        print("Current position mode")
-        mp.osd_message("Cache write mode: Current position")
-    else
+    if not modes[value] then
         msg.error("Invalid dump mode '" .. value .. "'")
+        return
     end
+    opts.dump_mode = value
+    local mode = mode_info[value]
+    print(mode, "mode" .. ".")
+    mp.osd_message("Cache write mode: " .. mode)
 end
 
 -- Set the principal part of the file name using the media title
 function title_change(_, media_title)
-    if opts.force_title ~= "no" or not media_title then
+    if enabled(opts.force_title) or not media_title then
         return end
     -- Replacement of reserved file name characters on Windows
     file.title = media_title:gsub("[\\/:*?\"<>|]", ".")
@@ -198,7 +203,7 @@ function container()
     if not file_format then
         file.ext = nil
         return end
-    if opts.force_extension ~= "no" then
+    if enabled(opts.force_extension) then
         file.ext = opts.force_extension
         return end
     if webm[video] and webm[audio] then
@@ -282,13 +287,13 @@ local function write_set(mode, file_name, file_pos, quiet)
     return command
 end
 
-local function on_write_finish(cache_write, mode, file_name)
+local function on_write_finish(mode, file_name)
     return function(success, _, command_error)
         command_error = command_error and msg.error(command_error)
         -- check if file is written
         if utils.file_info(file_name) then
             if success then
-                print("Finished writing cache to: " .. file_name)
+                print("Finished writing cache to:", file_name)
             else
                 msg.warn("Possibly broken file created at: " .. file_name)
             end
@@ -296,13 +301,13 @@ local function on_write_finish(cache_write, mode, file_name)
             msg.error("File not written.")
         end
         if loop.continuous and file.pending == 2 then
-            print("Dumping cache continuously to: " .. file.name)
+            print("Dumping cache continuously to:", file.name)
         end
         file.pending = file.pending - 1
     end
 end
 
-local function cache_write(mode, quiet, chapter)
+function cache_write(mode, quiet, chapter)
     if not (file.title and file.ext) or file.pending == 2 then
         return end
     range_flip()
@@ -323,10 +328,10 @@ local function cache_write(mode, quiet, chapter)
     if mode == "current" then
         file_pos = mp.get_property_number("playback-time", 0)
     elseif loop.continuous and file.pending == 1 then
-        print("Dumping cache continuously to: " .. file.name)
+        print("Dumping cache continuously to:", file.name)
     end
     local commands = write_set(mode, file.name, file_pos, quiet)
-    local callback = on_write_finish(cache_write, mode, file.name)
+    local callback = on_write_finish(mode, file.name)
     file.writing = mp.command_native_async(commands, callback)
     return true
 end
@@ -343,12 +348,12 @@ local function align_cache()
         loop.b_revert = loop.b
         mp.command("ab-loop-align-cache")
         loop.aligned = true
-        print("Adjusted range: " .. loop_range())
+        print("Adjusted range:", loop_range())
     else
         mp.set_property_native("ab-loop-a", loop.a_revert)
         mp.set_property_native("ab-loop-b", loop.b_revert)
         loop.aligned = false
-        print("Loop points reverted to: " .. loop_range())
+        print("Loop points reverted to:", loop_range())
         mp.osd_message("A-B loop: " .. loop.range)
     end
 end
