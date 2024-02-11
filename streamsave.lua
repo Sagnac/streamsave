@@ -390,8 +390,7 @@ local function normalize(path)
 end
 
 local function get_path_length(path)
-    local _, n = path:gsub(UNICODE, "")
-    return n
+    return (select(2, path:gsub(UNICODE, "")))
 end
 
 function update.save_directory()
