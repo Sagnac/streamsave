@@ -390,26 +390,21 @@ function chapter_points()
         if not updated then
             mp.set_property_native("chapter-list", chapter_list)
         end
-    else
-        if loop.a then
-            ab_chapters[1] = {
-                title = "A loop point",
-                time = loop.a
-            }
-        end
-        if loop.b and not loop.a then
-            ab_chapters[1] = {
-                title = "B loop point",
-                time = loop.b
-            }
-        elseif loop.b then
-            ab_chapters[2] = {
-                title = "B loop point",
-                time = loop.b
-            }
-        end
-        mp.set_property_native("chapter-list", ab_chapters)
+        return
     end
+    if loop.a then
+        ab_chapters[1] = {
+            title = "A loop point",
+            time = loop.a
+        }
+    end
+    if loop.b then
+        table.insert(ab_chapters, {
+            title = "B loop point",
+            time = loop.b
+        })
+    end
+    mp.set_property_native("chapter-list", ab_chapters)
 end
 
 -- stops writing the file
