@@ -25,7 +25,7 @@ local opts = {
 local cycle_modes = {
     "ab",
     "current",
-    "continuous"
+    "continuous",
 }
 
 local modes = {}
@@ -46,7 +46,10 @@ local labels = {
     overwrite = true,
 }
 
-setmetatable(cycle_modes, {__index = function(t) return t[1] end})
+setmetatable(cycle_modes, {
+    __index = function(t) return t[1] end,
+    __call  = function(t) return t[modes[opts.dump_mode] + 1] end
+})
 
 -- for internal use
 local file = {
@@ -175,7 +178,7 @@ update_opts{force_title = true, save_directory = true}
 local function mode_switch(value)
     value = value or opts.dump_mode
     if value == "cycle" then
-        value = cycle_modes[modes[opts.dump_mode] + 1]
+        value = cycle_modes()
     end
     if not modes[value] then
         msg.error("Invalid dump mode '" .. value .. "'")
