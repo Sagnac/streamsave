@@ -167,18 +167,15 @@ local opts = {
     piecewise       = false,       -- <yes|no> writes stream in parts with autoend
 }
 
-local cycle_modes = {
+local cycle = {}
+
+cycle.modes = {
     "ab",
     "current",
     "continuous",
     "chapter",
-    "segments"
+    "segments",
 }
-
-local modes = {}
-for i, v in ipairs(cycle_modes) do
-    modes[v] = i
-end
 
 local mode_info = {
     continuous = "Continuous",
@@ -192,22 +189,29 @@ local mode_info = {
     }
 }
 
-local cycle_labels = {
+cycle.labels = {
     "increment",
     "range",
     "timestamp",
     "overwrite",
-    "chapter"
+    "chapter",
 }
 
-local labels = {}
-for i, v in ipairs(cycle_labels) do
-    labels[v] = i
+function cycle.set(s)
+    local opt = {}
+    for i, v in ipairs(cycle[s]) do
+        opt[v] = i
+    end
+    local mt = {
+        __index = function(t) return t[1] end,
+        __call  = function(t, v) return t[opt[v] + 1] end
+    }
+    setmetatable(cycle[s], mt)
+    return opt
 end
 
-local cycle_mt = {__index = function(t) return t[1] end}
-setmetatable(cycle_modes, cycle_mt)
-setmetatable(cycle_labels, cycle_mt)
+local modes = cycle.set("modes")
+local labels = cycle.set("labels")
 
 -- for internal use
 local file = {
@@ -480,7 +484,7 @@ update_opts{force_title = true, save_directory = true}
 local function mode_switch(value)
     value = value or opts.dump_mode
     if value == "cycle" then
-        value = cycle_modes[modes[opts.dump_mode] + 1]
+        value = cycle.modes(opts.dump_mode)
     end
     if not modes[value] then
         msg.error("Invalid dump mode '" .. value .. "'")
@@ -623,7 +627,7 @@ end
 
 local function label_override(value)
     if value == "cycle" then
-        value = cycle_labels[labels[opts.output_label] + 1]
+        value = cycle.labels(opts.output_label)
     end
     opts.output_label = value or opts.output_label
     validate_opts()
