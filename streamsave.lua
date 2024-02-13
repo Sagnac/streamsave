@@ -480,6 +480,10 @@ end
 options.read_options(opts, "streamsave", update_opts)
 update_opts{force_title = true, save_directory = true}
 
+local function push(t, v)
+    t[#t + 1] = v
+end
+
 -- dump mode switching
 local function mode_switch(value)
     value = value or opts.dump_mode
@@ -933,7 +937,7 @@ local function extract_segments(n, chapter_list)
             ["title"] = "0. " .. file.title
         })
     end
-    table.insert(segments, {
+    push(segments, {
         ["start"] = chapter_list[n]["time"],
         ["end"] = "no",
         ["title"] = n .. ". " .. (chapter_list[n]["title"] or file.title)
@@ -1012,8 +1016,9 @@ function cache_write(mode, quiet, chapter)
         file.queue = file.queue or {}
         -- honor extra write requests when pending queue is full
         -- but limit number of outstanding write requests to be fulfilled
-        if #file.queue < 10 then
-            table.insert(file.queue, {mode, quiet, chapter})
+        local queue_size = #file.queue
+        if queue_size < 10 then
+            file.queue[queue_size + 1] = {mode, quiet, chapter}
         end
         return end
     range_flip()
@@ -1113,21 +1118,24 @@ end
 
 function get_chapters()
     local current_chapters = mp.get_property_native("chapter-list", {})
-    local updated -- do the stored chapters reflect the current chapters ?
-    -- make sure master list is up to date
+    -- make sure the master list is up to date
     if not current_chapters[1] or
        not string.match(current_chapters[1]["title"], "^[AB] loop point$")
     then
         chapter_list = current_chapters
-        updated = true
+        return true
+    end
     -- if a script has added chapters after A-B points are set then
     -- add those to the original chapter list
-    elseif #current_chapters > #ab_chapters then
-        for i = #ab_chapters + 1, #current_chapters do
-            table.insert(chapter_list, current_chapters[i])
+    local current_len = #current_chapters
+    local ab_len = #ab_chapters
+    if current_len > ab_len then
+        local last = #chapter_list
+        for i = ab_len + 1, current_len do
+            last = last + 1
+            chapter_list[last] = current_chapters[i]
         end
     end
-    return updated
 end
 
 -- creates chapters at A-B loop points
@@ -1152,7 +1160,7 @@ function chapter_points()
         }
     end
     if loop.b then
-        table.insert(ab_chapters, {
+        push(ab_chapters, {
             title = "B loop point",
             time = loop.b
         })
@@ -1363,7 +1371,7 @@ local function fragment_chapters(packets, cache_time, stamp)
             return
         end
     end
-    table.insert(chapter_list, {
+    push(chapter_list, {
         title = title,
         time = cache_time
     })
