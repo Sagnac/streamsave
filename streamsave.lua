@@ -176,12 +176,11 @@ update_opts{force_title = true, save_directory = true}
 
 -- dump mode switching
 local function mode_switch(value)
-    value = value or opts.dump_mode
     if value == "cycle" then
         value = cycle_modes()
     end
     if not modes[value] then
-        msg.error("Invalid dump mode '" .. value .. "'")
+        msg.error(("Invalid dump mode '%s'."):format(value))
         return
     end
     opts.dump_mode = value
