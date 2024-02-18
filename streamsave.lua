@@ -490,7 +490,7 @@ local function mode_switch(value)
         value = cycle.modes(opts.dump_mode)
     end
     if not modes[value] then
-        msg.error("Invalid dump mode '" .. value .. "'")
+        msg.error(("Invalid dump mode '%s'"):format(value))
         return
     end
     opts.dump_mode = value
@@ -633,7 +633,7 @@ local function label_override(value)
         value = cycle.labels(opts.output_label)
     end
     if not labels[value] then
-        msg.error("Invalid output label '" .. value .. "'")
+        msg.error(("Invalid output label '%s'"):format(value))
         return
     end
     opts.output_label = value
