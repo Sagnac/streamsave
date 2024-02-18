@@ -1,8 +1,8 @@
 --[[
 
 streamsave.lua
-Version 0.27.1
-2024-02-11
+Version 0.27.2
+2024-02-18
 https://github.com/Sagnac/streamsave
 
 mpv script aimed at saving live streams and clipping online videos without encoding.
