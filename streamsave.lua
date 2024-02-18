@@ -336,11 +336,11 @@ end
 
 local function validate_opts()
     if not modes[opts.dump_mode] then
-        msg.error("Invalid dump_mode '" .. opts.dump_mode .. "'")
+        msg.error(("Invalid dump_mode '%s'"):format(opts.dump_mode))
         opts.dump_mode = "ab"
     end
     if not labels[opts.output_label] then
-        msg.error("Invalid output_label '" .. opts.output_label .. "'")
+        msg.error(("Invalid output_label '%s'"):format(opts.output_label))
         opts.output_label = "increment"
     end
     if opts.autoend ~= "no" then
@@ -348,16 +348,18 @@ local function validate_opts()
             cache.endsec = convert_time(opts.autoend)
         end
         if not convert_time(opts.autoend) then
-            msg.error("Invalid autoend value '" .. opts.autoend ..
-                     "'. Use HH:MM:SS format.")
+            msg.error(string.format(
+                "Invalid autoend value '%s'. Use HH:MM:SS format.", opts.autoend
+            ))
             opts.autoend = "no"
         end
     end
     if opts.quit ~= "no" then
         file.quitsec = convert_time(opts.quit)
         if not file.quitsec then
-            msg.error("Invalid quit value '" .. opts.quit ..
-                     "'. Use HH:MM:SS format.")
+            msg.error(string.format(
+                "Invalid quit value '%s'. Use HH:MM:SS format.", opts.quit
+            ))
             opts.quit = "no"
         end
     end
@@ -657,7 +659,7 @@ local function marks_override(value)
         msg.info("Range marks enabled.")
         mp.osd_message("streamsave: range marks enabled")
     else
-        msg.error("Invalid input '" .. value .. "'. Use yes or no.")
+        msg.error(("Invalid input '%s'. Use yes or no."):format(value))
         mp.osd_message("streamsave: invalid input; use yes or no")
     end
 end
@@ -673,7 +675,7 @@ local function autostart_override(value)
         msg.info("Autostart enabled.")
         mp.osd_message("streamsave: autostart enabled")
     else
-        msg.error("Invalid input '" .. value .. "'. Use yes or no.")
+        msg.error(("Invalid input '%s'. Use yes or no."):format(value))
         mp.osd_message("streamsave: invalid input; use yes or no")
         return
     end
@@ -708,7 +710,7 @@ local function hostchange_override(value)
         mp.osd_message("streamsave: hostchange on_demand " .. status)
     else
         local allowed = "yes, no, or on_demand"
-        msg.error("Invalid input '" .. value .. "'. Use", allowed .. ".")
+        msg.error(("Invalid input '%s'. Use %s."):format(value, allowed))
         mp.osd_message("streamsave: invalid input; use " .. allowed)
         return
     end
@@ -738,7 +740,7 @@ local function piecewise_override(value)
         msg.info("Piecewise dumping enabled.")
         mp.osd_message("streamsave: piecewise dumping enabled")
     else
-        msg.error("Invalid input '" .. value .. "'. Use yes or no.")
+        msg.error(("Invalid input '%s'. Use yes or no."):format(value))
         mp.osd_message("streamsave: invalid input; use yes or no")
     end
 end
@@ -755,7 +757,7 @@ local function packet_override(value)
         msg.info("Track packets enabled.")
         mp.osd_message("streamsave: track packets enabled")
     else
-        msg.error("Invalid input '" .. value .. "'. Use yes or no.")
+        msg.error(("Invalid input '%s'. Use yes or no."):format(value))
         mp.osd_message("streamsave: invalid input; use yes or no")
     end
     if opts.track_packets ~= track_packets then
