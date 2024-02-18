@@ -633,10 +633,13 @@ local function label_override(value)
     if value == "cycle" then
         value = cycle.labels(opts.output_label)
     end
-    opts.output_label = value or opts.output_label
-    validate_opts()
-    msg.info("File label changed to", opts.output_label)
-    mp.osd_message("streamsave: label changed to " .. opts.output_label)
+    if not labels[value] then
+        msg.error("Invalid output label '" .. value .. "'")
+        return
+    end
+    opts.output_label = value
+    msg.info("File label changed to", value)
+    mp.osd_message("streamsave: label changed to " .. value)
 end
 
 local function marks_override(value)
