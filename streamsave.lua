@@ -560,6 +560,11 @@ local function cycle_bool_on_missing_arg(arg, opt)
     return arg or (not opt and "yes" or "no")
 end
 
+local function throw_on_bool_invalidation(value)
+    msg.error(("Invalid input '%s'. Use yes or no."):format(value))
+    mp.osd_message("streamsave: invalid input; use yes or no")
+end
+
 local function format_override(ext, force)
     ext = ext or file.ext
     file.oldext = file.oldext or file.ext
@@ -659,8 +664,7 @@ local function marks_override(value)
         msg.info("Range marks enabled.")
         mp.osd_message("streamsave: range marks enabled")
     else
-        msg.error(("Invalid input '%s'. Use yes or no."):format(value))
-        mp.osd_message("streamsave: invalid input; use yes or no")
+        throw_on_bool_invalidation(value)
     end
 end
 
@@ -675,8 +679,7 @@ local function autostart_override(value)
         msg.info("Autostart enabled.")
         mp.osd_message("streamsave: autostart enabled")
     else
-        msg.error(("Invalid input '%s'. Use yes or no."):format(value))
-        mp.osd_message("streamsave: invalid input; use yes or no")
+        throw_on_bool_invalidation(value)
         return
     end
     observe_cache()
@@ -740,8 +743,7 @@ local function piecewise_override(value)
         msg.info("Piecewise dumping enabled.")
         mp.osd_message("streamsave: piecewise dumping enabled")
     else
-        msg.error(("Invalid input '%s'. Use yes or no."):format(value))
-        mp.osd_message("streamsave: invalid input; use yes or no")
+        throw_on_bool_invalidation(value)
     end
 end
 
@@ -757,8 +759,7 @@ local function packet_override(value)
         msg.info("Track packets enabled.")
         mp.osd_message("streamsave: track packets enabled")
     else
-        msg.error(("Invalid input '%s'. Use yes or no."):format(value))
-        mp.osd_message("streamsave: invalid input; use yes or no")
+        throw_on_bool_invalidation(value)
     end
     if opts.track_packets ~= track_packets then
         packet_events(opts.track_packets)
