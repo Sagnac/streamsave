@@ -486,7 +486,6 @@ end
 
 -- dump mode switching
 local function mode_switch(value)
-    value = value or opts.dump_mode
     if value == "cycle" then
         value = cycle.modes(opts.dump_mode)
     end
