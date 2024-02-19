@@ -316,6 +316,11 @@ local function enabled(option)
     return string.len(option) > 0
 end
 
+local function throw(...)
+    -- catch
+    msg.error(string.format(...))
+end
+
 local function deprecate()
     local warn = false
     local options = {"force_extension", "force_title"}
@@ -336,11 +341,11 @@ end
 
 local function validate_opts()
     if not modes[opts.dump_mode] then
-        msg.error(("Invalid dump_mode '%s'"):format(opts.dump_mode))
+        throw("Invalid dump_mode '%s'", opts.dump_mode)
         opts.dump_mode = "ab"
     end
     if not labels[opts.output_label] then
-        msg.error(("Invalid output_label '%s'"):format(opts.output_label))
+        throw("Invalid output_label '%s'", opts.output_label)
         opts.output_label = "increment"
     end
     if opts.autoend ~= "no" then
@@ -348,18 +353,14 @@ local function validate_opts()
             cache.endsec = convert_time(opts.autoend)
         end
         if not convert_time(opts.autoend) then
-            msg.error(string.format(
-                "Invalid autoend value '%s'. Use HH:MM:SS format.", opts.autoend
-            ))
+            throw("Invalid autoend value '%s'. Use HH:MM:SS format.", opts.autoend)
             opts.autoend = "no"
         end
     end
     if opts.quit ~= "no" then
         file.quitsec = convert_time(opts.quit)
         if not file.quitsec then
-            msg.error(string.format(
-                "Invalid quit value '%s'. Use HH:MM:SS format.", opts.quit
-            ))
+            throw("Invalid quit value '%s'. Use HH:MM:SS format.", opts.quit)
             opts.quit = "no"
         end
     end
@@ -492,7 +493,7 @@ local function mode_switch(value)
         value = cycle.modes(opts.dump_mode)
     end
     if not modes[value] then
-        msg.error(("Invalid dump mode '%s'"):format(value))
+        throw("Invalid dump mode '%s'", value)
         return
     end
     opts.dump_mode = value
@@ -561,7 +562,7 @@ local function cycle_bool_on_missing_arg(arg, opt)
 end
 
 local function throw_on_bool_invalidation(value)
-    msg.error(("Invalid input '%s'. Use yes or no."):format(value))
+    throw("Invalid input '%s'. Use yes or no.", value)
     mp.osd_message("streamsave: invalid input; use yes or no")
 end
 
@@ -640,7 +641,7 @@ local function label_override(value)
         value = cycle.labels(opts.output_label)
     end
     if not labels[value] then
-        msg.error(("Invalid output label '%s'"):format(value))
+        throw("Invalid output label '%s'", value)
         return
     end
     opts.output_label = value
@@ -713,7 +714,7 @@ local function hostchange_override(value)
         mp.osd_message("streamsave: hostchange on_demand " .. status)
     else
         local allowed = "yes, no, or on_demand"
-        msg.error(("Invalid input '%s'. Use %s."):format(value, allowed))
+        throw("Invalid input '%s'. Use %s.", value, allowed)
         mp.osd_message("streamsave: invalid input; use " .. allowed)
         return
     end
