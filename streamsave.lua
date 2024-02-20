@@ -147,6 +147,8 @@ local options = require 'mp.options'
 local utils = require 'mp.utils'
 local msg = require 'mp.msg'
 
+-- compatibility with Lua 5.1 (these are present in 5.2+ and LuaJIT)
+local pack = table.pack or function(...) return {n = select("#", ...), ...} end
 local unpack = unpack or table.unpack
 
 -- default user settings
@@ -316,9 +318,17 @@ local function enabled(option)
     return string.len(option) > 0
 end
 
-local function throw(...)
-    -- catch
-    msg.error(string.format(...))
+local function throw(s, ...)
+    local try = function(...) msg.error(s:format(...)) end
+    if not pcall(try, ...) then
+        -- catch and explicitly cast in case of Lua 5.1 which doesn't coerce
+        -- non-string types while formatting with the string specifier
+        local args = pack(...)
+        for i = 1, args.n do
+            args[i] = tostring(args[i])
+        end
+        try(unpack(args, 1, args.n))
+    end
 end
 
 local function deprecate()
