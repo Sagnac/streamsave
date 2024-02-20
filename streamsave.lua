@@ -389,10 +389,10 @@ local function normalize(path)
     path = append_slash(utils.getcwd() or "") .. path:gsub("^%.[\\/]", "")
     -- relative paths with ../ are resolved by collapsing
     -- the parent directories iteratively
-    local k = 1
-    while k > 0 do
+    local k
+    repeat
         path, k = path:gsub("[\\/][^\\/]+[\\/]+%.%.[\\/]", "/", 1)
-    end
+    until k == 0
     return path
 end
 
