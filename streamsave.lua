@@ -349,13 +349,20 @@ local function deprecate()
     end
 end
 
+local function show_possible_settings(t)
+    msg.warn("Possible settings are:")
+    msg.warn(utils.to_string(t))
+end
+
 local function validate_opts()
     if not modes[opts.dump_mode] then
-        throw("Invalid dump_mode '%s'", opts.dump_mode)
+        throw("Invalid dump_mode '%s'.", opts.dump_mode)
+        show_possible_settings(cycle.modes)
         opts.dump_mode = "ab"
     end
     if not labels[opts.output_label] then
-        throw("Invalid output_label '%s'", opts.output_label)
+        throw("Invalid output_label '%s'.", opts.output_label)
+        show_possible_settings(cycle.labels)
         opts.output_label = "increment"
     end
     if opts.autoend ~= "no" then
@@ -503,7 +510,8 @@ local function mode_switch(value)
         value = cycle.modes(opts.dump_mode)
     end
     if not modes[value] then
-        throw("Invalid dump mode '%s'", value)
+        throw("Invalid dump mode '%s'.", value)
+        show_possible_settings(cycle.modes)
         return
     end
     opts.dump_mode = value
@@ -651,7 +659,8 @@ local function label_override(value)
         value = cycle.labels(opts.output_label)
     end
     if not labels[value] then
-        throw("Invalid output label '%s'", value)
+        throw("Invalid output label '%s'.", value)
+        show_possible_settings(cycle.labels)
         return
     end
     opts.output_label = value
