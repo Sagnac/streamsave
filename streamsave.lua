@@ -1,8 +1,8 @@
 --[[
 
 streamsave.lua
-Version 0.27.0-lite
-2023-02-11
+Version 0.27.3-lite
+2023-02-21
 https://github.com/Sagnac/streamsave/tree/lite
 
 ]]
