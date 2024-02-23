@@ -1018,7 +1018,7 @@ local function on_write_finish(mode, file_name)
             mp.osd_message("Cache dumping successfully ended.")
         end
         if file.queue and next(file.queue) and not segments[1] then
-            cache_write(unpack(file.queue[1]))
+            cache_write(unpack(file.queue[1], 1, file.queue[1].n))
             table.remove(file.queue, 1)
         end
         -- re-enable subtitles if they were disabled
@@ -1043,7 +1043,7 @@ function cache_write(mode, quiet, chapter)
         -- but limit number of outstanding write requests to be fulfilled
         local queue_size = #file.queue
         if queue_size < 10 then
-            file.queue[queue_size + 1] = {mode, quiet, chapter}
+            file.queue[queue_size + 1] = pack(mode, quiet, chapter)
         end
         return end
     range_flip()
