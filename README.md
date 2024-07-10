@@ -102,6 +102,10 @@ script-message streamsave-chapter 7
 
 ----
 
+`fallback_write=yes` enables initiation of full continuous writes under A-B loop mode if no loop points are set.
+
+----
+
 The `output_label` option allows you to choose how the output filename is tagged.
 
 The default uses iterated step increments for every file output; i.e. file-1.mkv, file-2.mkv, etc.

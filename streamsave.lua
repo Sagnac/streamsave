@@ -60,6 +60,8 @@ dump_mode=segments writes out all chapters to individual files.
 If you wish to output a single chapter using a numerical input instead you can specify it with a command at runtime:
 script-message streamsave-chapter 7
 
+fallback_write=yes enables initiation of full continuous writes under A-B loop mode if no loop points are set.
+
 The output_label option allows you to choose how the output filename is tagged.
 The default uses iterated step increments for every file output; i.e. file-1.mkv, file-2.mkv, etc.
 
@@ -156,6 +158,7 @@ local unpack = unpack or table.unpack
 local opts = {
     save_directory  = [[]],        -- output file directory
     dump_mode       = "ab",        -- <ab|current|continuous|chapter|segments>
+    fallback_write  = false,       -- <yes|no> full dump if no loop points are set
     output_label    = "increment", -- <increment|range|timestamp|overwrite|chapter>
     force_extension = "",          -- <.ext> extension will be .ext if set
     force_title     = "",          -- <title> custom title used for the filename
@@ -1090,6 +1093,9 @@ function cache_write(mode, quiet, chapter)
     -- dump cache according to mode
     local file_pos
     file.pending = (file.pending or 0) + 1
+    if opts.fallback_write and mode == "ab" and not loop.a and not loop.b then
+        mode = "continuous"
+    end
     loop.continuous = mode == "continuous"
                       or mode == "ab" and loop.a and not loop.b
                       or segments[1] and segments[1]["end"] == "no"
