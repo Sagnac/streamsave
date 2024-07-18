@@ -551,6 +551,10 @@ function title_change(_, media_title, req)
     file.oldtitle = nil
 end
 
+local function local_mkv(file_format)
+    return not mp.get_property_bool("demuxer-via-network") and file_format == "mkv"
+end
+
 -- Determine container for standard formats
 function container(_, _, req)
     local audio = mp.get_property("audio-codec-name", "none")
@@ -568,7 +572,7 @@ function container(_, _, req)
         return end
     if webm[video] and webm[audio] then
         file.ext = ".webm"
-    elseif mp4[video] and mp4[audio] then
+    elseif mp4[video] and mp4[audio] and not local_mkv(file_format) then
         file.ext = ".mp4"
     else
         file.ext = ".mkv"
